@@ -8,6 +8,9 @@ const C = {
   gold: "#D4A017", goldSoft: "#FFF8E1",
 };
 
+function loadJSON(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; } }
+function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+
 const Badge = ({ children, color = C.accent, bg = C.accentSoft }) => (
   <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, borderRadius: 20, padding: "2px 10px", whiteSpace: "nowrap" }}>{children}</span>
 );
@@ -27,50 +30,40 @@ const Select = ({ children, ...props }) => (
   <select {...props} style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "7px 12px", fontSize: 13, color: C.text, outline: "none", background: C.bg, cursor: "pointer", ...props.style }}>{children}</select>
 );
 
-// --- notification helpers ---
 function playBeep(times) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     for (let i = 0; i < times; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       osc.frequency.value = 880; osc.type = "sine"; gain.gain.value = 0.3;
       osc.start(ctx.currentTime + i * 0.3); osc.stop(ctx.currentTime + i * 0.3 + 0.15);
     }
-  } catch (e) {}
+  } catch(e) {}
 }
 function sendNotification(title, body) {
-  if ("Notification" in window && Notification.permission === "granted") {
-    try { new Notification(title, { body }); } catch(e) {}
-  }
+  if ("Notification" in window && Notification.permission === "granted") { try { new Notification(title, { body }); } catch(e) {} }
 }
 
-
-
-// ============ TAB 1: CROP TIMER ============
+// ============ TAB 1: CROP TIMER (せらさん修正版) ============
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用" },
-  
-  { name: "稲", min: 20, lv: "1",},
+  { name: "稲", min: 20, lv: "1", tip: "" },
   { name: "ジャガイモ", min: 15, lv: "1", tip: "トマトと同じ回転率" },
   { name: "小麦", min: 240, lv: "2", tip: "4時間。就寝/外出前に" },
   { name: "レタス", min: 480, lv: "3", tip: "8時間。寝る前に植えて朝収穫" },
-  { name: "パイナップル", min: 30, lv: "4", tip: "30分。トマトの次のレベリング候補" },
+  { name: "パイナップル", min: 30, lv: "4", tip: "30分" },
   { name: "にんじん", min: 120, lv: "5", tip: "2時間" },
   { name: "いちご", min: 360, lv: "6", tip: "6時間。ジャム金策に" },
   { name: "ブルーベリー", min: 60, lv: "1", tip: "1時間" },
   { name: "とうもろこし", min: 480, lv: "3", tip: "8時間" },
-  { name: "ブドウ", min: 720, lv: "7", tip: "12時間。ジャム金策最強クラス" },
+  { name: "ブドウ", min: 720, lv: "7", tip: "12時間。ジャム金策最強" },
   { name: "ナス", min: 720, lv: "8", tip: "12時間" },
   { name: "茶葉", min: 720, lv: "11", tip: "12時間" },
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間" },
   { name: "カスタム", min: 0, lv: "-", tip: "" },
 ];
-
-
-
 function CropTimer() {
   const [timers, setTimers] = useState([]);
   const [crop, setCrop] = useState(CROPS[0].name);
@@ -84,13 +77,11 @@ function CropTimer() {
     const id = setInterval(() => {
       setTick(t => t + 1);
       setTimers(prev => { prev.forEach(t => {
-        const remain = t.harvestAt - Date.now();
-        const k1 = t.id + "_1m", kd = t.id + "_done";
+        const remain = t.harvestAt - Date.now(); const k1 = t.id + "_1m", kd = t.id + "_done";
         if (remain <= 60000 && remain > 0 && !notifiedRef.current[k1]) { notifiedRef.current[k1] = true; playBeep(1); sendNotification("あと1分!", t.name + " の収穫まであと1分"); }
         if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2); sendNotification("収穫OK!", t.name + " が収穫できます!"); }
       }); return prev; });
-    }, 1000);
-    return () => clearInterval(id);
+    }, 1000); return () => clearInterval(id);
   }, []);
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
@@ -143,8 +134,9 @@ const DEFAULT_TASKS = [
   { id: 15, text: "天気予報チェック (腕時計→天気マーク)", cat: "管理" }, { id: 16, text: "ドリスの幸運商店 (雨/雪/虹の日のみ)", cat: "管理" },
 ];
 function DailyTasks() {
-  const [tasks, setTasks] = useState(DEFAULT_TASKS.map(t => ({ ...t, done: false })));
+  const [tasks, setTasks] = useState(() => loadJSON("hp_tasks", DEFAULT_TASKS.map(t => ({ ...t, done: false }))));
   const [newTask, setNewTask] = useState("");
+  useEffect(() => { saveJSON("hp_tasks", tasks); }, [tasks]);
   const toggle = (id) => setTasks(p => p.map(t => t.id === id ? { ...t, done: !t.done } : t));
   const doneCount = tasks.filter(t => t.done).length; const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
   const grouped = useMemo(() => { const m = {}; tasks.forEach(t => { (m[t.cat] = m[t.cat] || []).push(t); }); return Object.entries(m); }, [tasks]);
@@ -170,159 +162,84 @@ function DailyTasks() {
     </Card>);
 }
 
-// ============ TAB 3: RECIPE & PROFIT ============
+// ============ TAB 3: RECIPE (せらさん修正版) ============
 const RECIPES = [
-  { name: "田舎サラダ", mats: ["野菜 x2"], sell1: 90 },  
+  { name: "田舎サラダ", mats: ["野菜 x2"], sell1: 90 },
   { name: "ミックスジャム", mats: ["果物 x4 (種類混合)"], sell1: 160 },
   { name: "トマトソース", mats: ["トマト x4"], sell1: 180 },
-  { name: "ブルーベリージャム", mats: ["ブルーベリー x4"], sell1: 170,},
-  { name: "ラズベリージャム", mats: ["ラズベリー x4"], sell1: 250, },
-  { name: "オレンジジャム", mats: ["オレンジ x4"], sell1: 270, },
-  { name: "いちごジャム", mats: ["いちご x4"], sell1: 1580, },
-  { name: "ブドウジャム", mats: ["ブドウ x4"], sell1: 2020,},
+  { name: "ブルーベリージャム", mats: ["ブルーベリー x4"], sell1: 170 },
+  { name: "ラズベリージャム", mats: ["ラズベリー x4"], sell1: 250 },
+  { name: "オレンジジャム", mats: ["オレンジ x4"], sell1: 270 },
+  { name: "いちごジャム", mats: ["いちご x4"], sell1: 1580 },
+  { name: "ブドウジャム", mats: ["ブドウ x4"], sell1: 2020 },
   { name: "リンゴジャム", mats: ["リンゴ x4"], sell1: 270 },
-  { name: "パイナップルジャム", mats: ["パイナップル x4"], sell1: 280 }, 
-  { name: "チョコソース", mats: ["カカオ豆 x4"], sell1: 1400 }, 
-  { name: "オリジナルロールケーキ", mats: ["卵 x1", "牛乳 x1", "虹のキャンディ x2"], sell1: 550,},
- 
-  { name: "赤いロールケーキ", mats: ["卵 x1", "牛乳 x1", "赤のキャンディ x2"], sell1: 670,},
-  { name: "オレンジのロールケーキ", mats: ["卵 x1", "牛乳 x1", "オレンジ色のキャンディ x2"], sell1: 670,},
-  { name: "黄色いロールケーキ", mats: ["卵 x1", "牛乳 x1", "黄色のキャンディ x2"], sell1: 670,},
-  { name: "紫のロールケーキ", mats: ["卵 x1", "牛乳 x1", "紫のキャンディ x2"], sell1: 670,},
-  { name: "緑のロールケーキ", mats: ["卵 x1", "牛乳 x1", "緑のキャンディ x2"], sell1: 670,},
- 
-  { name: "青いロールケーキ", mats: ["卵 x1", "牛乳 x1", "青のキャンディ x2"], sell1: 670,},
- 
-  
-  { name: "藍色のロールケーキ", mats: ["卵 x1", "牛乳 x1", "ブルーキャンディ x2"], sell1: 670,},
- 
-  
-  { name: "スモークサーモンベーグル", mats: ["魚 x1", "チーズ x1", "野菜 x1", "小麦 x1"], sell1: 520,},
- 
-  
-  { name: "キノコパイ", mats: ["キノコ x2", "小麦 x1", "卵 x1"], sell1: 500,},
- 
-
-  { name: "ヒラタケパイ", mats: ["ヒラタケ x2", "小麦 x1", "卵 x1"], sell1: 500,},
- 
-  { name: "シイタケパイ", mats: ["シイタケ x2", "小麦 x1", "卵 x1"], sell1: 500,},
-  { name: "マッシュルームパイ", mats: ["マッシュルーム x2", "小麦 x1", "卵 x1"], sell1: 500,},
-  { name: "ヤマドリタケパイ", mats: ["ヤマドリタケ x2", "小麦 x1", "卵 x1"], sell1: 500,},
-  { name: "トリュフパイ", mats: ["トリュフ x2", "小麦 x1", "卵 x1"], sell1: 830,},
-
-  { name: "焼きキノコ", mats: ["キノコ x5"], sell1: 180,},
-
-  
-  { name: "焼きヒラタケ", mats: ["ヒラタケ x5"], sell1: 180,},
-
-  { name: "焼きシイタケ", mats: ["シイタケ x5"], sell1: 180,},
-
-  
-  { name: "焼きマッシュルーム", mats: ["マッシュルーム x5"], sell1: 180,},
-  
-  { name: "焼きヤマドリダケ", mats: ["ヤマドリダケ x5"], sell1: 180,},
-
-
- 
-  { name: "コーヒー", mats: ["コーヒー豆 x2", "コーヒー豆 x2",], sell1: 290,},
- 
-  
-  { name: "カフェラテ", mats: ["コーヒー豆 x2", "牛乳 x2",], sell1: 300,},
- 
-  
-  
-  { name: "シーフードリゾット", mats: ["海鮮 x1", "小麦 x1", "トマト x1"], sell1: 490,},
- 
-  
-  { name: "チーズケーキ", mats: ["チーズ x1", "牛乳 x1", "小麦 x1"], sell1: 480,},
- 
-  
-  { name: "カントリー風煮込み", mats: ["トマト x1", "じゃがいも x1", "レタス x1"], sell1: 640,},
- 
-  
-  
-  { name: "トリュフのクリームパスタ", mats: ["トリュフ x1", "小麦 x2", "牛乳 x1"], sell1: 900,},
- 
-  
-  { name: "温泉卵", mats: ["無菌卵 x1", ], sell1: 130,},
- 
-
-  { name: "フィッシュアンドチップス", mats: ["魚 x2",  "ジャガイモ x2"], sell1: 310,},
-  
-  { name: "シェイク", mats: ["牛乳 x2",  "牛乳 x2"], sell1: 400,},
- 
-  
-  { name: "抹茶シェイク", mats: ["牛乳 x2",  "抹茶パウダー x2"], sell1: 840,},
- 
-
- 
-  { name: "ブルーベリーシェイク", mats: ["牛乳 x2",  "ブルーベリー x2"], sell1: 400,},
- 
-  { name: "ラズベリーシェイク", mats: ["牛乳 x2",  "ラズベリー x2"], sell1: 440,},
-  
-  
-  { name: "リンゴシェイク", mats: ["牛乳 x2",  "リンゴ x2"], sell1: 450,},
-  
-  { name: "オレンジシェイク", mats: ["牛乳 x2",  "オレンジ x2"], sell1: 450,},
-  
-  { name: "パイナップルシェイク", mats: ["牛乳 x2",  "パイナップル x2"], sell1: 440,},
-  
-  
-  { name: "いちごシェイク", mats: ["牛乳 x2",  "いちご x2"], sell1: 1090,},
-  
-  { name: "ブドウシェイク", mats: ["牛乳 x2",  "ブドウ x2"], sell1: 1300,},
-  
-  { name: "濃厚ミルクティー", mats: ["紅茶 x2",  "牛乳 x2"], sell1: 2840,},
-  
-  { name: "ココアシェイク", mats: ["牛乳 x2",  "カカオ豆 x2"], sell1: 1120,},
-  
-  { name: "抹茶ミルクティー", mats: ["茶葉 x2",  "牛乳 x1","抹茶パウダー x1"], sell1: 700,},
-  { name: "ヒナギクハーブティー", mats: ["茶葉 x2",  "白いヒナギク x2"], sell1: 600,},
-  { name: "ローズティー", mats: ["茶葉 x2",  "赤いバラ x1"], sell1: 1930,},
-  { name: "アフタヌーンティー", mats: ["チーズケーキ x2",  "香る紅茶 x2"], sell1: 2970,},
-  { name: "エビのアボガドカップ詰めレシピ", mats: ["アガサエビ系 x2",  "アボガド x2"], sell1: 1560,},
-  { name: "チーズカニ爪フライ", mats: ["タラバガニ系 x2",  "アガサエビ系 x2"], sell1: 1440,},
-  { name: "アップルパイ", mats: ["リンゴ x1", "小麦 x1", "卵 x1", "バター x1"], sell1: 730,},
-  { name: "キャンドルディナー", mats: ["田園サラダ x1", "スモークサーモンベーグル x1", "シーフードリゾット x1", "ティラミス x1"], sell1: 1760, },
-  
-  { name: "英国式アフタヌーンティー", mats: ["ティラミス x1", "ジャム材料 x1",], sell1: 710, },
-  { name: "ミートバーガー", mats: ["小麦 x1", "レタス x1", "肉 x1", "トマトソース x1"], sell1: 1350, },
+  { name: "パイナップルジャム", mats: ["パイナップル x4"], sell1: 280 },
+  { name: "チョコソース", mats: ["カカオ豆 x4"], sell1: 1400 },
+  { name: "オリジナルロールケーキ", mats: ["卵 x1", "牛乳 x1", "虹のキャンディ x2"], sell1: 550 },
+  { name: "赤いロールケーキ", mats: ["卵 x1", "牛乳 x1", "赤のキャンディ x2"], sell1: 670 },
+  { name: "オレンジのロールケーキ", mats: ["卵 x1", "牛乳 x1", "オレンジ色のキャンディ x2"], sell1: 670 },
+  { name: "黄色いロールケーキ", mats: ["卵 x1", "牛乳 x1", "黄色のキャンディ x2"], sell1: 670 },
+  { name: "紫のロールケーキ", mats: ["卵 x1", "牛乳 x1", "紫のキャンディ x2"], sell1: 670 },
+  { name: "緑のロールケーキ", mats: ["卵 x1", "牛乳 x1", "緑のキャンディ x2"], sell1: 670 },
+  { name: "青いロールケーキ", mats: ["卵 x1", "牛乳 x1", "青のキャンディ x2"], sell1: 670 },
+  { name: "藍色のロールケーキ", mats: ["卵 x1", "牛乳 x1", "ブルーキャンディ x2"], sell1: 670 },
+  { name: "スモークサーモンベーグル", mats: ["魚 x1", "チーズ x1", "野菜 x1", "小麦 x1"], sell1: 520 },
+  { name: "キノコパイ", mats: ["キノコ x2", "小麦 x1", "卵 x1"], sell1: 500 },
+  { name: "ヒラタケパイ", mats: ["ヒラタケ x2", "小麦 x1", "卵 x1"], sell1: 500 },
+  { name: "シイタケパイ", mats: ["シイタケ x2", "小麦 x1", "卵 x1"], sell1: 500 },
+  { name: "マッシュルームパイ", mats: ["マッシュルーム x2", "小麦 x1", "卵 x1"], sell1: 500 },
+  { name: "ヤマドリタケパイ", mats: ["ヤマドリタケ x2", "小麦 x1", "卵 x1"], sell1: 500 },
+  { name: "トリュフパイ", mats: ["トリュフ x2", "小麦 x1", "卵 x1"], sell1: 830 },
+  { name: "焼きキノコ", mats: ["キノコ x5"], sell1: 180 },
+  { name: "焼きヒラタケ", mats: ["ヒラタケ x5"], sell1: 180 },
+  { name: "焼きシイタケ", mats: ["シイタケ x5"], sell1: 180 },
+  { name: "焼きマッシュルーム", mats: ["マッシュルーム x5"], sell1: 180 },
+  { name: "焼きヤマドリダケ", mats: ["ヤマドリダケ x5"], sell1: 180 },
+  { name: "コーヒー", mats: ["コーヒー豆 x2", "コーヒー豆 x2"], sell1: 290 },
+  { name: "カフェラテ", mats: ["コーヒー豆 x2", "牛乳 x2"], sell1: 300 },
+  { name: "シーフードリゾット", mats: ["海鮮 x1", "小麦 x1", "トマト x1"], sell1: 490 },
+  { name: "チーズケーキ", mats: ["チーズ x1", "牛乳 x1", "小麦 x1"], sell1: 480 },
+  { name: "カントリー風煮込み", mats: ["トマト x1", "じゃがいも x1", "レタス x1"], sell1: 640 },
+  { name: "トリュフのクリームパスタ", mats: ["トリュフ x1", "小麦 x2", "牛乳 x1"], sell1: 900 },
+  { name: "温泉卵", mats: ["無菌卵 x1"], sell1: 130 },
+  { name: "フィッシュアンドチップス", mats: ["魚 x2", "ジャガイモ x2"], sell1: 310 },
+  { name: "シェイク", mats: ["牛乳 x2", "牛乳 x2"], sell1: 400 },
+  { name: "抹茶シェイク", mats: ["牛乳 x2", "抹茶パウダー x2"], sell1: 840 },
+  { name: "ブルーベリーシェイク", mats: ["牛乳 x2", "ブルーベリー x2"], sell1: 400 },
+  { name: "ラズベリーシェイク", mats: ["牛乳 x2", "ラズベリー x2"], sell1: 440 },
+  { name: "リンゴシェイク", mats: ["牛乳 x2", "リンゴ x2"], sell1: 450 },
+  { name: "オレンジシェイク", mats: ["牛乳 x2", "オレンジ x2"], sell1: 450 },
+  { name: "パイナップルシェイク", mats: ["牛乳 x2", "パイナップル x2"], sell1: 440 },
+  { name: "いちごシェイク", mats: ["牛乳 x2", "いちご x2"], sell1: 1090 },
+  { name: "ブドウシェイク", mats: ["牛乳 x2", "ブドウ x2"], sell1: 1300 },
+  { name: "濃厚ミルクティー", mats: ["紅茶 x2", "牛乳 x2"], sell1: 2840 },
+  { name: "ココアシェイク", mats: ["牛乳 x2", "カカオ豆 x2"], sell1: 1120 },
+  { name: "抹茶ミルクティー", mats: ["茶葉 x2", "牛乳 x1", "抹茶パウダー x1"], sell1: 700 },
+  { name: "ヒナギクハーブティー", mats: ["茶葉 x2", "白いヒナギク x2"], sell1: 600 },
+  { name: "ローズティー", mats: ["茶葉 x2", "赤いバラ x1"], sell1: 1930 },
+  { name: "アフタヌーンティー", mats: ["チーズケーキ x2", "香る紅茶 x2"], sell1: 2970 },
+  { name: "エビのアボガドカップ詰め", mats: ["アガサエビ系 x2", "アボガド x2"], sell1: 1560 },
+  { name: "チーズカニ爪フライ", mats: ["タラバガニ系 x2", "アガサエビ系 x2"], sell1: 1440 },
+  { name: "アップルパイ", mats: ["リンゴ x1", "小麦 x1", "卵 x1", "バター x1"], sell1: 730 },
+  { name: "キャンドルディナー", mats: ["田園サラダ x1", "スモークサーモンベーグル x1", "シーフードリゾット x1", "ティラミス x1"], sell1: 1760 },
+  { name: "英国式アフタヌーンティー", mats: ["ティラミス x1", "ジャム材料 x1"], sell1: 710 },
+  { name: "ミートバーガー", mats: ["小麦 x1", "レタス x1", "肉 x1", "トマトソース x1"], sell1: 1350 },
   { name: "キャンプセット", mats: ["コーヒー素材 x1", "シーフードピザ x1", "アップルパイ x1", "フィッシュアンドチップス x1"], sell1: 2260 },
-
-  { name: "ティラミス", mats: ["コーヒー豆 x1", "卵 x1", "牛乳 x1", "チーズ x1"], sell1: 530},
-  
-  { name: "豪華海鮮盛り合わせ", mats: ["北欧アカザエビ x2", "魚 x2",], sell1: 410,},
-  
-  
-  { name: "コーンポタージュ", mats: ["牛乳 x1", "バター x1", "トウモロコシ x2"], sell1: 1340, },
-  
-  { name: "ニンジンケーキ", mats: ["卵」 x1", "小麦 x1", "ニンジン x3"], sell1: 840, },
-  
-  { name: "ココアミルクティー", mats: ["紅茶 x2", "牛乳 x1", "カカオ豆 x1",], sell1: 1120,  },
-  
-  { name: "ミートソースパスタ", mats: ["肉 x1", "小麦 x1", "トマト x1", "チーズ x1"], sell1: 670, },
-  
-  { name: "シーフードピザ", mats: ["チーズ x1", "トマトソース x1", "小麦 x1", "魚 x1"], sell1: 780, },
-  
-  { name: "アカザエビの前菜", mats: ["アガサエビ x3", "レタス x1",], sell1: 850, },
-  
-  
-  { name: "蒸しタラバガニ", mats: ["タラバガニ x3", "バター x1"], sell1: 1990, },
-  
-
-  
-  { name: "北欧ブルーアカザエビの前菜", mats: ["北欧ブルーアガサエビ x3", "レタス x1"], sell1: 1310,  },
-  
-  
-  { name: "蒸し黄金タラバガニ", mats: ["黄金タラバガニ x3", "バター x1"], sell1: 2980, },
-  
-
-
-  { name: "香る紅茶", mats: ["紅茶 x2",  "牛乳 x2"], sell1: 840,  },
-  
-  { name: "ナスのひき肉の炒め物", mats: ["ナス x1", "肉 x1", "料理油 x1", "トマトソース x1"], sell1: 1230, },
-  ];
-  function RecipeCalc() {
+  { name: "ティラミス", mats: ["コーヒー豆 x1", "卵 x1", "牛乳 x1", "チーズ x1"], sell1: 530 },
+  { name: "豪華海鮮盛り合わせ", mats: ["北欧アカザエビ x2", "魚 x2"], sell1: 410 },
+  { name: "コーンポタージュ", mats: ["牛乳 x1", "バター x1", "トウモロコシ x2"], sell1: 1340 },
+  { name: "ニンジンケーキ", mats: ["卵 x1", "小麦 x1", "ニンジン x3"], sell1: 840 },
+  { name: "ココアミルクティー", mats: ["紅茶 x2", "牛乳 x1", "カカオ豆 x1"], sell1: 1120 },
+  { name: "ミートソースパスタ", mats: ["肉 x1", "小麦 x1", "トマト x1", "チーズ x1"], sell1: 670 },
+  { name: "シーフードピザ", mats: ["チーズ x1", "トマトソース x1", "小麦 x1", "魚 x1"], sell1: 780 },
+  { name: "アカザエビの前菜", mats: ["アガサエビ x3", "レタス x1"], sell1: 850 },
+  { name: "蒸しタラバガニ", mats: ["タラバガニ x3", "バター x1"], sell1: 1990 },
+  { name: "北欧ブルーアカザエビの前菜", mats: ["北欧ブルーアガサエビ x3", "レタス x1"], sell1: 1310 },
+  { name: "蒸し黄金タラバガニ", mats: ["黄金タラバガニ x3", "バター x1"], sell1: 2980 },
+  { name: "香る紅茶", mats: ["紅茶 x2", "牛乳 x2"], sell1: 840 },
+  { name: "ナスのひき肉の炒め物", mats: ["ナス x1", "肉 x1", "料理油 x1", "トマトソース x1"], sell1: 1230 },
+];
+function RecipeCalc() {
   const [search, setSearch] = useState(""); const [sort, setSort] = useState("sell1");
   const filtered = useMemo(() => {
     let list = RECIPES.map(r => ({ ...r, sell5: Math.round(r.sell1 * 4) }));
@@ -356,101 +273,16 @@ const RECIPES = [
 }
 
 // ============ TAB 4: COLLECTION TRACKER ============
-const FISH_DATA = [
-  { name: "ヨーロピアンパーチ", weather: "全天気", time: "全時間", spot: "全ての川", lv: "-", sell: 75 },
-  { name: "コウライエビ", weather: "全天気", time: "全時間", spot: "全ての川", lv: "-", sell: 50 },
-  { name: "シマドジョウ", weather: "全天気", time: "全時間", spot: "巨木の川", lv: "-", sell: 50 },
-  { name: "バーベル", weather: "全天気", time: "全時間", spot: "浅水川", lv: "-", sell: 75 },
-  { name: "ミノー", weather: "全天気", time: "全時間", spot: "静川", lv: "-", sell: 50 },
-  { name: "イシドジョウ", weather: "全天気", time: "全時間", spot: "郊外の湖", lv: "2", sell: 100 },
-  { name: "キュウリウオ", weather: "全天気", time: "全時間", spot: "草原の湖", lv: "2", sell: 100 },
-  { name: "マッドサンフィッシュ", weather: "全天気", time: "6:00-24:00", spot: "森の湖", lv: "2", sell: 100 },
-  { name: "パイクパーチ", weather: "晴虹", time: "全時間", spot: "巨木の川", lv: "3", sell: 230 },
-  { name: "イガイ", weather: "雨雪虹", time: "全時間", spot: "郊外の湖", lv: "3", sell: 100 },
-  { name: "オタマジャクシ", weather: "雨雪虹", time: "全時間", spot: "温泉山の湖", lv: "3", sell: 100 },
-  { name: "北欧アカザエビ", weather: "全天気", time: "0:00-12:00 18:00-24:00", spot: "森の湖", lv: "3", sell: 100 },
-  { name: "オオクチバス", weather: "晴虹", time: "全時間", spot: "森の湖", lv: "4", sell: 230 },
-  { name: "バタフライコイ", weather: "雨雪虹", time: "全時間", spot: "草原の湖", lv: "4", sell: 320 },
-  { name: "カワメンタイ", weather: "全天気", time: "12:00-24:00", spot: "静川", lv: "4", sell: 230 },
-  { name: "ヨーロッパコイ", weather: "晴虹", time: "12:00-24:00", spot: "霞川", lv: "4", sell: 230 },
-  { name: "マス", weather: "晴虹", time: "0:00-6:00 18:00-24:00", spot: "草原の湖", lv: "5", sell: 230 },
-  { name: "カワギンボ", weather: "全天気", time: "全時間", spot: "露川", lv: "5", sell: 150 },
-  { name: "シロザケ", weather: "虹", time: "全時間", spot: "静川", lv: "6", sell: 150 },
-  { name: "シンジュガイ", weather: "虹", time: "全時間", spot: "森の湖", lv: "6", sell: 380 },
-  { name: "カワヒメマス", weather: "全天気", time: "全時間", spot: "郊外の湖", lv: "6", sell: 230 },
-  { name: "カジカ", weather: "雨雪虹", time: "6:00-24:00", spot: "温泉山の湖", lv: "7", sell: 150 },
-  { name: "イトヨ", weather: "雨雪虹", time: "全時間", spot: "浅水川", lv: "7", sell: 150 },
-  { name: "アプロケイルス", weather: "晴虹", time: "0:00-6:00 12:00-24:00", spot: "郊外の湖", lv: "7", sell: 150 },
-  { name: "北欧ブルーアカザエビ", weather: "全天気", time: "0:00-6:00 18:00-24:00", spot: "森の湖", lv: "8", sell: 250 },
-  { name: "キンギョ", weather: "雨雪虹", time: "6:00-24:00", spot: "草原の湖", lv: "8", sell: 250 },
-  { name: "マッドミノー", weather: "晴虹", time: "0:00-12:00", spot: "郊外の湖", lv: "8", sell: 250 },
-  { name: "ドナウイトウ", weather: "虹", time: "0:00-6:00 12:00-24:00", spot: "巨木の川", lv: "9", sell: 380 },
-  { name: "パンプキンシード", weather: "晴虹", time: "6:00-24:00", spot: "温泉山の湖", lv: "9", sell: 250 },
-  { name: "ノーザンパイク", weather: "雨雪虹", time: "0:00-6:00 18:00-24:00", spot: "郊外の湖", lv: "9", sell: 670 },
-  { name: "ヨーロッパナマズ", weather: "晴虹", time: "0:00-6:00 18:00-24:00", spot: "草原の湖", lv: "10", sell: 610 },
-  { name: "ホッキョクイワナ", weather: "雨雪虹", time: "12:00-24:00", spot: "森の湖", lv: "10", sell: 610 },
-  { name: "ブルーギル", weather: "晴虹", time: "0:00-6:00 18:00-24:00", spot: "温泉山の湖", lv: "10", sell: 395 },
-  { name: "ニシイワシ", weather: "全天気", time: "全時間", spot: "全ての海", lv: "-", sell: 50 },
-  { name: "スズキ", weather: "全天気", time: "全時間", spot: "全ての海", lv: "-", sell: 75 },
-  { name: "カツオ", weather: "全天気", time: "全時間", spot: "全ての海", lv: "-", sell: 210 },
-  { name: "タチウオ", weather: "全天気", time: "全時間", spot: "そよ風の海", lv: "-", sell: 105 },
-  { name: "ウミエビ", weather: "全天気", time: "全時間", spot: "東海", lv: "-", sell: 50 },
-  { name: "ウミトゲウオ", weather: "全天気", time: "全時間", spot: "旧海", lv: "-", sell: 50 },
-  { name: "カクレクマノミ", weather: "全天気", time: "全時間", spot: "旧海", lv: "3", sell: 100 },
-  { name: "フグ", weather: "全天気", time: "12:00-24:00", spot: "旧海", lv: "6", sell: 230 },
-  { name: "タブ・ガーナード", weather: "虹", time: "全時間", spot: "東海", lv: "6", sell: 380 },
-  { name: "スペインダイ", weather: "雨雪虹", time: "0:00-6:00 18:00-24:00", spot: "そよ風の海", lv: "7", sell: 230 },
-  { name: "ヨーロッパウナギ", weather: "虹", time: "6:00-24:00", spot: "旧海", lv: "7", sell: 380 },
-  { name: "モンツキダラ", weather: "晴虹", time: "0:00-6:00 12:00-24:00", spot: "東海", lv: "8", sell: 230 },
-  { name: "マンボウ", weather: "全天気", time: "0:00-12:00", spot: "東海", lv: "9", sell: 850 },
-  { name: "ミナミマグロ", weather: "虹", time: "6:00-18:00", spot: "そよ風の海", lv: "9", sell: 850 },
-  { name: "シュモクザメ", weather: "虹", time: "0:00-6:00 18:00-24:00", spot: "旧海", lv: "10", sell: 850 },
-  { name: "メカジキ", weather: "虹", time: "6:00-18:00", spot: "クジラ海", lv: "10", sell: 850 },
-  { name: "アオザメ", weather: "虹", time: "6:00-18:00", spot: "釣りクエスト", lv: "10", sell: 850 },
-];
-const BUG_DATA = [
-  { name: "アカイトトンボ", weather: "全天気", time: "全時間", spot: "水辺", lv: "-", sell: 35 },
-  { name: "アスバラカズハムシ", weather: "全天気", time: "全時間", spot: "花畑", lv: "-", sell: 55 },
-  { name: "イカルスヒメシジミ", weather: "全天気", time: "全時間", spot: "中心街", lv: "2", sell: 105 },
-  { name: "アオホシハナムグリ", weather: "雨雪虹", time: "全時間", spot: "ホーム", lv: "2", sell: 165 },
-  { name: "ナナホシテントウ", weather: "雨雪虹", time: "全時間", spot: "郊外", lv: "2", sell: 110 },
-  { name: "アカエリトリバネアゲハ", weather: "全天気", time: "0:00-6:00 18:00-24:00", spot: "ホーム", lv: "3", sell: 90 },
-  { name: "アカハネムシ", weather: "全天気", time: "全時間", spot: "温泉山", lv: "3", sell: 110 },
-  { name: "アリ", weather: "全天気", time: "全時間", spot: "漁村広場", lv: "3", sell: 220 },
-  { name: "イリスコムラサキ", weather: "晴虹", time: "0:00-6:00 12:00-24:00", spot: "花畑/クジラ山", lv: "3", sell: 90 },
-  { name: "アルキプテラフスカ", weather: "晴虹", time: "0:00-6:00 12:00-24:00", spot: "郊外", lv: "4", sell: 140 },
-  { name: "ニジイロカマキリ", weather: "晴虹", time: "0:00-6:00 12:00-24:00", spot: "温泉山", lv: "4", sell: 195 },
-  { name: "ツマグロヒョウモン", weather: "雨雪虹", time: "0:00-12:00 18:00-24:00", spot: "漁村桟橋", lv: "4", sell: 90 },
-  { name: "タケウチトゲムネカマキリ", weather: "虹", time: "全時間", spot: "森の島", lv: "5", sell: 165 },
-  { name: "ナミテントウ", weather: "雨雪虹", time: "0:00-6:00 12:00-24:00", spot: "森コジカ塔", lv: "5", sell: 165 },
-  { name: "アオハダトンボ", weather: "雨雪虹", time: "全時間", spot: "森の湖", lv: "6", sell: 110 },
-  { name: "ビューティースペキオーサ", weather: "雨雪虹", time: "6:00-18:00", spot: "クジラ山", lv: "7", sell: 275 },
-  { name: "ロサトンボ", weather: "虹", time: "0:00-6:00 12:00-24:00", spot: "温泉山湖", lv: "7", sell: 185 },
-  { name: "イザベラミズアオ", weather: "晴虹", time: "12:00-24:00", spot: "不思議な松林", lv: "8", sell: 105 },
-  { name: "ピカソバグ", weather: "晴虹", time: "0:00-6:00 18:00-24:00", spot: "花畑/パープルビーチ", lv: "8", sell: 185 },
-  { name: "青いクマバチ", weather: "虹", time: "0:00-6:00 12:00-24:00", spot: "漁村広場", lv: "9", sell: 440 },
-  { name: "オウゴンオニクワガタ", weather: "雨雪虹", time: "0:00-6:00 18:00-24:00", spot: "不思議な松林", lv: "9", sell: 440 },
-  { name: "シンジュタテハ", weather: "雨雪虹", time: "0:00-12:00", spot: "風車の花畑", lv: "9", sell: 300 },
-  { name: "タイヨウモルフォ", weather: "虹", time: "6:00-18:00", spot: "森コジカ塔", lv: "10", sell: 500 },
-];
-const BIRD_DATA = [
-  { name: "スズメ", weather: "全天気", time: "全時間", spot: "中心街", lv: "-", sell: 20 },
-  { name: "エナガ", weather: "全天気", time: "全時間", spot: "中心街/郊外", lv: "-", sell: 20 },
-  { name: "コマドリ", weather: "全天気", time: "全時間", spot: "郊外", lv: "2", sell: 25 },
-  { name: "カワセミ", weather: "晴虹", time: "6:00-18:00", spot: "川辺", lv: "3", sell: 25 },
-  { name: "オオルリ", weather: "全天気", time: "6:00-18:00", spot: "森", lv: "4", sell: 30 },
-  { name: "フクロウ", weather: "全天気", time: "0:00-6:00 18:00-24:00", spot: "森", lv: "5", sell: 30 },
-  { name: "ハヤブサ", weather: "雨雪虹", time: "6:00-18:00", spot: "郊外/温泉山", lv: "6", sell: 35 },
-  { name: "ワシミミズク", weather: "雨雪虹", time: "0:00-6:00 18:00-24:00", spot: "森/温泉山", lv: "7", sell: 35 },
-  { name: "アジサシ", weather: "虹", time: "全時間", spot: "東海", lv: "7", sell: 35 },
-  { name: "ナナイロフウキンチョウ", weather: "虹", time: "全時間", spot: "郊外", lv: "9", sell: 30 },
-  { name: "ロクショウヒタキ", weather: "虹", time: "全時間", spot: "森ジャンプステージ", lv: "10", sell: 30 },
-];
-const WEATHER_OPTS = ["全て", "全天気", "晴虹", "雨雪虹", "虹"];
-const COLLECTIONS = { fish: FISH_DATA, bug: BUG_DATA, bird: BIRD_DATA };
+const FISH_DATA=[{name:"ヨーロピアンパーチ",weather:"全天気",time:"全時間",spot:"全ての川",lv:"-",sell:75},{name:"コウライエビ",weather:"全天気",time:"全時間",spot:"全ての川",lv:"-",sell:50},{name:"シマドジョウ",weather:"全天気",time:"全時間",spot:"巨木の川",lv:"-",sell:50},{name:"バーベル",weather:"全天気",time:"全時間",spot:"浅水川",lv:"-",sell:75},{name:"ミノー",weather:"全天気",time:"全時間",spot:"静川",lv:"-",sell:50},{name:"イシドジョウ",weather:"全天気",time:"全時間",spot:"郊外の湖",lv:"2",sell:100},{name:"キュウリウオ",weather:"全天気",time:"全時間",spot:"草原の湖",lv:"2",sell:100},{name:"マッドサンフィッシュ",weather:"全天気",time:"6:00-24:00",spot:"森の湖",lv:"2",sell:100},{name:"パイクパーチ",weather:"晴虹",time:"全時間",spot:"巨木の川",lv:"3",sell:230},{name:"イガイ",weather:"雨雪虹",time:"全時間",spot:"郊外の湖",lv:"3",sell:100},{name:"オタマジャクシ",weather:"雨雪虹",time:"全時間",spot:"温泉山の湖",lv:"3",sell:100},{name:"北欧アカザエビ",weather:"全天気",time:"0:00-12:00 18:00-24:00",spot:"森の湖",lv:"3",sell:100},{name:"オオクチバス",weather:"晴虹",time:"全時間",spot:"森の湖",lv:"4",sell:230},{name:"バタフライコイ",weather:"雨雪虹",time:"全時間",spot:"草原の湖",lv:"4",sell:320},{name:"カワメンタイ",weather:"全天気",time:"12:00-24:00",spot:"静川",lv:"4",sell:230},{name:"ヨーロッパコイ",weather:"晴虹",time:"12:00-24:00",spot:"霞川",lv:"4",sell:230},{name:"マス",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"草原の湖",lv:"5",sell:230},{name:"カワギンボ",weather:"全天気",time:"全時間",spot:"露川",lv:"5",sell:150},{name:"シロザケ",weather:"虹",time:"全時間",spot:"静川",lv:"6",sell:150},{name:"シンジュガイ",weather:"虹",time:"全時間",spot:"森の湖",lv:"6",sell:380},{name:"カワヒメマス",weather:"全天気",time:"全時間",spot:"郊外の湖",lv:"6",sell:230},{name:"カジカ",weather:"雨雪虹",time:"6:00-24:00",spot:"温泉山の湖",lv:"7",sell:150},{name:"イトヨ",weather:"雨雪虹",time:"全時間",spot:"浅水川",lv:"7",sell:150},{name:"アプロケイルス",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"郊外の湖",lv:"7",sell:150},{name:"北欧ブルーアカザエビ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"森の湖",lv:"8",sell:250},{name:"キンギョ",weather:"雨雪虹",time:"6:00-24:00",spot:"草原の湖",lv:"8",sell:250},{name:"マッドミノー",weather:"晴虹",time:"0:00-12:00",spot:"郊外の湖",lv:"8",sell:250},{name:"ドナウイトウ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"巨木の川",lv:"9",sell:380},{name:"パンプキンシード",weather:"晴虹",time:"6:00-24:00",spot:"温泉山の湖",lv:"9",sell:250},{name:"ノーザンパイク",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"郊外の湖",lv:"9",sell:670},{name:"ヨーロッパナマズ",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"草原の湖",lv:"10",sell:610},{name:"ホッキョクイワナ",weather:"雨雪虹",time:"12:00-24:00",spot:"森の湖",lv:"10",sell:610},{name:"ブルーギル",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"温泉山の湖",lv:"10",sell:395},{name:"ニシイワシ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:50},{name:"スズキ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:75},{name:"カツオ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:210},{name:"タチウオ",weather:"全天気",time:"全時間",spot:"そよ風の海",lv:"-",sell:105},{name:"ウミエビ",weather:"全天気",time:"全時間",spot:"東海",lv:"-",sell:50},{name:"ウミトゲウオ",weather:"全天気",time:"全時間",spot:"旧海",lv:"-",sell:50},{name:"カクレクマノミ",weather:"全天気",time:"全時間",spot:"旧海",lv:"3",sell:100},{name:"フグ",weather:"全天気",time:"12:00-24:00",spot:"旧海",lv:"6",sell:230},{name:"タブ・ガーナード",weather:"虹",time:"全時間",spot:"東海",lv:"6",sell:380},{name:"スペインダイ",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"そよ風の海",lv:"7",sell:230},{name:"ヨーロッパウナギ",weather:"虹",time:"6:00-24:00",spot:"旧海",lv:"7",sell:380},{name:"モンツキダラ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"東海",lv:"8",sell:230},{name:"マンボウ",weather:"全天気",time:"0:00-12:00",spot:"東海",lv:"9",sell:850},{name:"ミナミマグロ",weather:"虹",time:"6:00-18:00",spot:"そよ風の海",lv:"9",sell:850},{name:"シュモクザメ",weather:"虹",time:"0:00-6:00 18:00-24:00",spot:"旧海",lv:"10",sell:850},{name:"メカジキ",weather:"虹",time:"6:00-18:00",spot:"クジラ海",lv:"10",sell:850},{name:"アオザメ",weather:"虹",time:"6:00-18:00",spot:"釣りクエスト",lv:"10",sell:850}];
+const BUG_DATA=[{name:"アカイトトンボ",weather:"全天気",time:"全時間",spot:"水辺",lv:"-",sell:35},{name:"アスバラカズハムシ",weather:"全天気",time:"全時間",spot:"花畑",lv:"-",sell:55},{name:"イカルスヒメシジミ",weather:"全天気",time:"全時間",spot:"中心街",lv:"2",sell:105},{name:"アオホシハナムグリ",weather:"雨雪虹",time:"全時間",spot:"ホーム",lv:"2",sell:165},{name:"ナナホシテントウ",weather:"雨雪虹",time:"全時間",spot:"郊外",lv:"2",sell:110},{name:"アカエリトリバネアゲハ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"ホーム",lv:"3",sell:90},{name:"アカハネムシ",weather:"全天気",time:"全時間",spot:"温泉山",lv:"3",sell:110},{name:"アリ",weather:"全天気",time:"全時間",spot:"漁村広場",lv:"3",sell:220},{name:"イリスコムラサキ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"花畑/クジラ山",lv:"3",sell:90},{name:"アルキプテラフスカ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"郊外",lv:"4",sell:140},{name:"ニジイロカマキリ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"温泉山",lv:"4",sell:195},{name:"ツマグロヒョウモン",weather:"雨雪虹",time:"0:00-12:00 18:00-24:00",spot:"漁村桟橋",lv:"4",sell:90},{name:"タケウチトゲムネカマキリ",weather:"虹",time:"全時間",spot:"森の島",lv:"5",sell:165},{name:"ナミテントウ",weather:"雨雪虹",time:"0:00-6:00 12:00-24:00",spot:"森コジカ塔",lv:"5",sell:165},{name:"アオハダトンボ",weather:"雨雪虹",time:"全時間",spot:"森の湖",lv:"6",sell:110},{name:"ビューティースペキオーサ",weather:"雨雪虹",time:"6:00-18:00",spot:"クジラ山",lv:"7",sell:275},{name:"ロサトンボ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"温泉山湖",lv:"7",sell:185},{name:"イザベラミズアオ",weather:"晴虹",time:"12:00-24:00",spot:"不思議な松林",lv:"8",sell:105},{name:"ピカソバグ",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"花畑/パープルビーチ",lv:"8",sell:185},{name:"青いクマバチ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"漁村広場",lv:"9",sell:440},{name:"オウゴンオニクワガタ",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"不思議な松林",lv:"9",sell:440},{name:"シンジュタテハ",weather:"雨雪虹",time:"0:00-12:00",spot:"風車の花畑",lv:"9",sell:300},{name:"タイヨウモルフォ",weather:"虹",time:"6:00-18:00",spot:"森コジカ塔",lv:"10",sell:500}];
+const BIRD_DATA=[{name:"スズメ",weather:"全天気",time:"全時間",spot:"中心街",lv:"-",sell:20},{name:"エナガ",weather:"全天気",time:"全時間",spot:"中心街/郊外",lv:"-",sell:20},{name:"コマドリ",weather:"全天気",time:"全時間",spot:"郊外",lv:"2",sell:25},{name:"カワセミ",weather:"晴虹",time:"6:00-18:00",spot:"川辺",lv:"3",sell:25},{name:"オオルリ",weather:"全天気",time:"6:00-18:00",spot:"森",lv:"4",sell:30},{name:"フクロウ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"森",lv:"5",sell:30},{name:"ハヤブサ",weather:"雨雪虹",time:"6:00-18:00",spot:"郊外/温泉山",lv:"6",sell:35},{name:"ワシミミズク",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"森/温泉山",lv:"7",sell:35},{name:"アジサシ",weather:"虹",time:"全時間",spot:"東海",lv:"7",sell:35},{name:"ナナイロフウキンチョウ",weather:"虹",time:"全時間",spot:"郊外",lv:"9",sell:30},{name:"ロクショウヒタキ",weather:"虹",time:"全時間",spot:"森ジャンプステージ",lv:"10",sell:30}];
+const WEATHER_OPTS=["全て","全天気","晴虹","雨雪虹","虹"];
+const COLLECTIONS={fish:FISH_DATA,bug:BUG_DATA,bird:BIRD_DATA};
 function CollectionTracker() {
-  const [tab, setTab] = useState("fish"); const [caught, setCaught] = useState({});
+  const [tab, setTab] = useState("fish");
+  const [caught, setCaught] = useState(() => loadJSON("hp_caught", {}));
   const [wFilter, setWFilter] = useState("全て"); const [search, setSearch] = useState(""); const [hideOwned, setHideOwned] = useState(false);
+  useEffect(() => { saveJSON("hp_caught", caught); }, [caught]);
   const toggleCaught = (cat, name) => setCaught(p => ({ ...p, [`${cat}:${name}`]: !p[`${cat}:${name}`] }));
   const items = useMemo(() => {
     let list = COLLECTIONS[tab] || [];
@@ -464,7 +296,7 @@ function CollectionTracker() {
   return (
     <Card>
       <SectionTitle emoji="📖">図鑑コンプトラッカー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠。売値は★1基準</div>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠。チェックはブラウザに自動保存</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>{Object.entries(tabLabels).map(([k, l]) => <IconBtn key={k} active={tab === k} color={tabColors[k]} onClick={() => setTab(k)}>{l}</IconBtn>)}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <Badge color={tabColors[tab]} bg={tab === "fish" ? C.blueSoft : tab === "bug" ? C.greenSoft : C.purpleSoft}>{ownedCount}/{total}</Badge>
@@ -488,143 +320,101 @@ function CollectionTracker() {
     </Card>);
 }
 
-// ============ TAB 5: FURNITURE ============
-function FurnitureCatalog() {
-  const [items, setItems] = useState([{ id: 1, name: "パステルソファ", source: "家具屋", cost: 3200, owned: false, memo: "" }, { id: 2, name: "星のランプ", source: "ガチャ", cost: 0, owned: false, memo: "欲しい!" }, { id: 3, name: "レンガの壁", source: "建材屋", cost: 800, owned: true, memo: "2F外壁用" }]);
-  const [newName, setNewName] = useState(""); const [newSource, setNewSource] = useState(""); const [newCost, setNewCost] = useState("");
-  const [layoutMemo, setLayoutMemo] = useState("1F: リビング+キッチン\n2F: 寝室\n庭: ガーデンエリア");
-  const totalCost = items.filter(i => !i.owned && i.cost > 0).reduce((s, i) => s + i.cost, 0);
+// ============ TAB 5: DAILY GATHERING ============
+const GATHER_ITEMS = [
+  { id: "oak", name: "ツルツルオーク", maxDaily: 3, spot: "森林エリア (ウォーキー)", tip: "開拓者Lv6で解放。家具制作に必須", emoji: "🌳" },
+  { id: "fluorite", name: "無垢な蛍石", maxDaily: 3, spot: "温泉山エリア", tip: "温泉山の星霊クエストで解放", emoji: "💎" },
+  { id: "rarewood", name: "レア木材", maxDaily: 8, spot: "郊外の巨木 (8箇所)", tip: "2時間ごとに再採取可能", emoji: "🪵" },
+  { id: "stone", name: "石", maxDaily: 0, spot: "各地の岩", tip: "上限なし。建築素材", emoji: "🪨" },
+  { id: "ore", name: "鉱石", maxDaily: 0, spot: "各地の鉱床", tip: "上限なし", emoji: "⛏️" },
+  { id: "starmeteor", name: "スターメテオの欠片", maxDaily: 0, spot: "各地", tip: "レア素材", emoji: "⭐" },
+  { id: "bamboo", name: "竹", maxDaily: 0, spot: "竹林エリア", tip: "建築素材", emoji: "🎋" },
+];
+function DailyGathering() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [gatherData, setGatherData] = useState(() => {
+    const saved = loadJSON("hp_gather", { date: "", items: {} });
+    return saved.date === today ? saved : { date: today, items: {} };
+  });
+  useEffect(() => { saveJSON("hp_gather", gatherData); }, [gatherData]);
+  const toggleItem = (id) => setGatherData(prev => ({ ...prev, items: { ...prev.items, [id]: !prev.items[id] } }));
+  const resetDaily = () => setGatherData({ date: today, items: {} });
+  const doneCount = GATHER_ITEMS.filter(g => gatherData.items[g.id]).length;
   return (
     <Card>
-      <SectionTitle emoji="🏠">家具カタログ & レイアウトメモ</SectionTitle>
-      <div style={{ marginBottom: 12 }}><Badge color={C.pink} bg={C.pinkSoft}>未入手分の必要コイン: {totalCost.toLocaleString()}G</Badge></div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-        {items.map(item => (
-          <div key={item.id} style={{ padding: "10px 12px", borderRadius: 10, background: item.owned ? C.greenSoft : C.bg, border: `1px solid ${item.owned ? C.green : C.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span onClick={() => setItems(p => p.map(i => i.id === item.id ? { ...i, owned: !i.owned } : i))} style={{ cursor: "pointer", fontSize: 15 }}>{item.owned ? "✅" : "⬜"}</span>
-              <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{item.name}</span><Badge>{item.source}</Badge>
-              {item.cost > 0 && <Badge color={C.accent} bg={C.accentSoft}>{item.cost}G</Badge>}
-              <button onClick={() => setItems(p => p.filter(i => i.id !== item.id))} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer" }}>✕</button>
-            </div>
-            <input value={item.memo} onChange={e => { const v = e.target.value; setItems(p => p.map(i => i.id === item.id ? { ...i, memo: v } : i)); }} placeholder="メモ..." style={{ marginTop: 6, width: "100%", border: "none", background: "transparent", fontSize: 12, color: C.textMuted, outline: "none", boxSizing: "border-box" }} />
-          </div>))}
+      <SectionTitle emoji="⛏️">デイリー採集トラッカー</SectionTitle>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>日替わりで自動リセット。毎日忘れず採集!</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border }}>
+          <div style={{ height: 8, borderRadius: 4, background: doneCount === GATHER_ITEMS.length ? C.green : C.accent, width: `${Math.round((doneCount / GATHER_ITEMS.length) * 100)}%`, transition: "width .3s" }} />
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: doneCount === GATHER_ITEMS.length ? C.green : C.accent }}>{doneCount}/{GATHER_ITEMS.length}</span>
+        <IconBtn onClick={resetDaily} color={C.danger}>リセット</IconBtn>
       </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-        <Input placeholder="家具名" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
-        <Input placeholder="入手方法" value={newSource} onChange={e => setNewSource(e.target.value)} style={{ flex: 1, minWidth: 80 }} />
-        <Input placeholder="コイン" type="number" value={newCost} onChange={e => setNewCost(e.target.value)} style={{ width: 70, flex: "none" }} />
-        <IconBtn onClick={() => { if (newName.trim()) { setItems(p => [...p, { id: Date.now(), name: newName.trim(), source: newSource.trim() || "未定", cost: parseInt(newCost) || 0, owned: false, memo: "" }]); setNewName(""); setNewSource(""); setNewCost(""); }}} color={C.pink}>追加</IconBtn>
-      </div>
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>📐 レイアウトメモ</div>
-        <textarea value={layoutMemo} onChange={e => setLayoutMemo(e.target.value)} rows={4} style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.text, background: C.bg, resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {GATHER_ITEMS.map(g => {
+          const done = gatherData.items[g.id];
+          return (
+            <div key={g.id} onClick={() => toggleItem(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: done ? C.greenSoft : C.bg, border: `1px solid ${done ? C.green : C.border}`, cursor: "pointer" }}>
+              <span style={{ fontSize: 20 }}>{g.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{g.name}</span>
+                  {g.maxDaily > 0 && <Badge color={C.pink} bg={C.pinkSoft}>1日{g.maxDaily}回</Badge>}
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{g.spot}</div>
+                <div style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}>{g.tip}</div>
+              </div>
+              <span style={{ fontSize: 16 }}>{done ? "✅" : "⬜"}</span>
+            </div>);
+        })}
       </div>
     </Card>);
 }
 
-// ============ TAB 6: GACHA COUNTER ============
-function GachaCounter() {
-  const [banners, setBanners] = useState([{ id: 1, name: "マイリトルポニー コラボ", pulls: 0, pity: 80, stonesPerPull: 160, stonesOwned: 4800 }, { id: 2, name: "バターベア コラボ", pulls: 0, pity: 80, stonesPerPull: 160, stonesOwned: 0 }]);
-  const [newBanner, setNewBanner] = useState("");
-  const upd = (id, f, v) => setBanners(p => p.map(b => b.id === id ? { ...b, [f]: v } : b));
-  return (
-    <Card>
-      <SectionTitle emoji="🎰">ガチャ天井カウンター</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>天井到達前に未入手アイテムが出ると天井リセット</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {banners.map(b => { const rem = Math.max(0, b.pity - b.pulls); const need = rem * b.stonesPerPull; const ok = b.stonesOwned >= need; const pct = b.pity > 0 ? Math.min(100, Math.round((b.pulls / b.pity) * 100)) : 0; return (
-          <div key={b.id} style={{ padding: 14, borderRadius: 14, background: C.bg, border: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}><span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{b.name}</span><button onClick={() => setBanners(p => p.filter(x => x.id !== b.id))} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer" }}>✕</button></div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-              <div style={{ flex: 1, minWidth: 100 }}><div style={{ fontSize: 11, color: C.textMuted }}>現在</div><div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                <button onClick={() => upd(b.id, "pulls", Math.max(0, b.pulls - 1))} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, cursor: "pointer" }}>-</button>
-                <span style={{ fontSize: 20, fontWeight: 800, color: C.accent, minWidth: 40, textAlign: "center" }}>{b.pulls}</span>
-                <button onClick={() => upd(b.id, "pulls", b.pulls + 1)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, cursor: "pointer" }}>+</button>
-                <button onClick={() => upd(b.id, "pulls", b.pulls + 10)} style={{ borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, cursor: "pointer", fontSize: 11, padding: "4px 8px" }}>+10</button>
-              </div></div>
-              <div><div style={{ fontSize: 11, color: C.textMuted }}>天井</div><Input type="number" value={b.pity} onChange={e => upd(b.id, "pity", parseInt(e.target.value) || 0)} style={{ width: 60, marginTop: 2 }} /></div>
-              <div><div style={{ fontSize: 11, color: C.textMuted }}>1回石数</div><Input type="number" value={b.stonesPerPull} onChange={e => upd(b.id, "stonesPerPull", parseInt(e.target.value) || 0)} style={{ width: 60, marginTop: 2 }} /></div>
-              <div><div style={{ fontSize: 11, color: C.textMuted }}>手持ち石</div><Input type="number" value={b.stonesOwned} onChange={e => upd(b.id, "stonesOwned", parseInt(e.target.value) || 0)} style={{ width: 80, marginTop: 2 }} /></div>
-            </div>
-            <div style={{ height: 8, borderRadius: 4, background: C.border, marginBottom: 8 }}><div style={{ height: 8, borderRadius: 4, background: pct >= 100 ? C.danger : C.accent, width: `${pct}%`, transition: "width .3s" }} /></div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Badge color={C.accent} bg={C.accentSoft}>あと {rem}連</Badge>
-              <Badge color={C.purple} bg={C.purpleSoft}>必要石 {need.toLocaleString()}</Badge>
-              <Badge color={ok ? C.green : C.danger} bg={ok ? C.greenSoft : C.dangerSoft}>{ok ? "石 足りてます!" : `不足 ${(need - b.stonesOwned).toLocaleString()}`}</Badge>
-            </div>
-          </div>); })}
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <Input placeholder="新しいガチャバナー名..." value={newBanner} onChange={e => setNewBanner(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && newBanner.trim()) { setBanners(p => [...p, { id: Date.now(), name: newBanner.trim(), pulls: 0, pity: 80, stonesPerPull: 160, stonesOwned: 0 }]); setNewBanner(""); }}} />
-        <IconBtn onClick={() => { if (newBanner.trim()) { setBanners(p => [...p, { id: Date.now(), name: newBanner.trim(), pulls: 0, pity: 80, stonesPerPull: 160, stonesOwned: 0 }]); setNewBanner(""); }}} color={C.accent}>追加</IconBtn>
-      </div>
-    </Card>);
-}
-
-// ============ TAB 7: COMPACT OVERLAY (配信者モード) ============
-function CompactOverlay({ tasks, timers, caught }) {
+// ============ TAB 6: COMPACT OVERLAY ============
+function CompactOverlay() {
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
+  const tasks = loadJSON("hp_tasks", DEFAULT_TASKS.map(t => ({...t, done: false})));
+  const caught = loadJSON("hp_caught", {});
   const doneCount = tasks.filter(t => t.done).length;
   const taskPct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
-  const fishTotal = FISH_DATA.length; const fishOwned = FISH_DATA.filter(i => caught["fish:" + i.name]).length;
-  const bugTotal = BUG_DATA.length; const bugOwned = BUG_DATA.filter(i => caught["bug:" + i.name]).length;
-  const birdTotal = BIRD_DATA.length; const birdOwned = BIRD_DATA.filter(i => caught["bird:" + i.name]).length;
-  const fmtRemain = (ms) => { if (ms <= 0) return "収穫OK!"; const m = Math.floor(ms / 60000); const s = Math.floor((ms % 60000) / 1000); return `${m}:${String(s).padStart(2, "0")}`; };
-  const fmtTime = (ts) => { const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
-
+  const fishOwned = FISH_DATA.filter(i => caught["fish:" + i.name]).length;
+  const bugOwned = BUG_DATA.filter(i => caught["bug:" + i.name]).length;
+  const birdOwned = BIRD_DATA.filter(i => caught["bird:" + i.name]).length;
   return (
     <div style={{ background: "rgba(255,248,240,0.92)", borderRadius: 16, padding: 16, maxWidth: 320, fontFamily: "'Helvetica Neue','Hiragino Sans',sans-serif", color: C.text, border: `1px solid ${C.border}`, backdropFilter: "blur(8px)" }}>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10, textAlign: "center" }}>🏡 ハートピア LIVE</div>
-
-      {/* Daily Progress */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📋 今日の進捗</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: `${taskPct}%`, transition: "width .3s" }} /></div>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: `${taskPct}%` }} /></div>
           <span style={{ fontSize: 12, fontWeight: 700, color: taskPct === 100 ? C.green : C.accent }}>{doneCount}/{tasks.length}</span>
         </div>
       </div>
-
-      {/* Crop Timers */}
-      {timers.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>🌱 栽培</div>
-          {timers.map(t => { const remain = t.harvestAt - Date.now(); const done = remain <= 0; return (
-            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "2px 0", color: done ? C.green : C.text }}>
-              <span>{done ? "🌾" : "🌿"} {t.name}</span>
-              <span style={{ fontWeight: 600 }}>{done ? "収穫OK!" : fmtRemain(remain)} ({fmtTime(t.harvestAt)})</span>
-            </div>); })}
-        </div>
-      )}
-
-      {/* Collection Progress */}
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📖 図鑑コンプ率</div>
         <div style={{ display: "flex", gap: 8, fontSize: 11 }}>
-          <span>🐟 {fishOwned}/{fishTotal}</span>
-          <span>🦋 {bugOwned}/{bugTotal}</span>
-          <span>🐦 {birdOwned}/{birdTotal}</span>
+          <span>🐟 {fishOwned}/{FISH_DATA.length}</span>
+          <span>🦋 {bugOwned}/{BUG_DATA.length}</span>
+          <span>🐦 {birdOwned}/{BIRD_DATA.length}</span>
         </div>
       </div>
-    </div>
-  );
+    </div>);
 }
 
 // ============ MAIN APP ============
 const TABS = [
-  { key: "crop", label: "🌱 栽培", color: C.green }, { key: "daily", label: "📋 デイリー", color: C.accent },
-  { key: "recipe", label: "🍳 レシピ", color: C.pink }, { key: "collect", label: "📖 図鑑", color: C.blue },
-  { key: "furniture", label: "🏠 家具", color: C.purple }, { key: "gacha", label: "🎰 ガチャ", color: C.accent },
+  { key: "crop", label: "🌱 栽培", color: C.green },
+  { key: "daily", label: "📋 デイリー", color: C.accent },
+  { key: "gather", label: "⛏️ 採集", color: C.gold },
+  { key: "recipe", label: "🍳 レシピ", color: C.pink },
+  { key: "collect", label: "📖 図鑑", color: C.blue },
   { key: "overlay", label: "🎬 配信", color: C.purple },
 ];
 export default function App() {
   const [activeTab, setActiveTab] = useState("crop");
-  const [tasks, setTasks] = useState(DEFAULT_TASKS.map(t => ({ ...t, done: false })));
-  const [timers, setTimers] = useState([]);
-  const [caught, setCaught] = useState({});
-
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
       <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: `1px solid ${C.border}` }}>
@@ -637,16 +427,15 @@ export default function App() {
       <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
         <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
         <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
+        <div style={{ display: activeTab === "gather" ? "block" : "none" }}><DailyGathering /></div>
         <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
         <div style={{ display: activeTab === "collect" ? "block" : "none" }}><CollectionTracker /></div>
-        <div style={{ display: activeTab === "furniture" ? "block" : "none" }}><FurnitureCatalog /></div>
-        <div style={{ display: activeTab === "gacha" ? "block" : "none" }}><GachaCounter /></div>
         <div style={{ display: activeTab === "overlay" ? "block" : "none" }}>
           <Card>
             <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
-            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースに URL/?overlay=true を入れると、このコンパクト表示だけが表示されます。配信画面に重ねて使えます!</div>
+            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースにURLを入れると配信画面に重ねて使えます</div>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
-            <CompactOverlay tasks={tasks} timers={timers} caught={caught} />
+            <CompactOverlay />
           </Card>
         </div>
       </div>
