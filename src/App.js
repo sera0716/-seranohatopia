@@ -27,6 +27,27 @@ const Select = ({ children, ...props }) => (
   <select {...props} style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "7px 12px", fontSize: 13, color: C.text, outline: "none", background: C.bg, cursor: "pointer", ...props.style }}>{children}</select>
 );
 
+// --- notification helpers ---
+function playBeep(times) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < times; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = "sine"; gain.gain.value = 0.3;
+      osc.start(ctx.currentTime + i * 0.3); osc.stop(ctx.currentTime + i * 0.3 + 0.15);
+    }
+  } catch (e) {}
+}
+function sendNotification(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try { new Notification(title, { body }); } catch(e) {}
+  }
+}
+
+
+
 // ============ TAB 1: CROP TIMER ============
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用" },
@@ -46,107 +67,46 @@ const CROPS = [
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間" },
   { name: "カスタム", min: 0, lv: "-", tip: "" },
-];// --- notification sound helper ---
-function playBeep(times) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    for (let i = 0; i < times; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
-      gain.gain.value = 0.3;
-      osc.start(ctx.currentTime + i * 0.3);
-      osc.stop(ctx.currentTime + i * 0.3 + 0.15);
-    }
-  } catch (e) {}
-}
+];
 
-function sendNotification(title, body) {
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body: body, icon: "🌾" });
-  }
-}
+
 
 function CropTimer() {
   const [timers, setTimers] = useState([]);
   const [crop, setCrop] = useState(CROPS[0].name);
-  const [customH, setCustomH] = useState("");
-  const [customName, setCustomName] = useState("");
+  const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
   const [, setTick] = useState(0);
   const [notifEnabled, setNotifEnabled] = useState(false);
   const notifiedRef = useRef({});
-
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      setNotifEnabled(true);
-    }
-  }, []);
-
-  const requestNotif = () => {
-    if ("Notification" in window) {
-      Notification.requestPermission().then(p => {
-        if (p === "granted") setNotifEnabled(true);
-      });
-    }
-  };
-
+  useEffect(() => { if ("Notification" in window && Notification.permission === "granted") setNotifEnabled(true); }, []);
+  const requestNotif = () => { if ("Notification" in window) Notification.requestPermission().then(p => { if (p === "granted") setNotifEnabled(true); }); };
   useEffect(() => {
     const id = setInterval(() => {
       setTick(t => t + 1);
-      setTimers(prev => {
-        prev.forEach(t => {
-          const remain = t.harvestAt - Date.now();
-          const key1min = t.id + "_1min";
-          const keyDone = t.id + "_done";
-          if (remain <= 60000 && remain > 0 && !notifiedRef.current[key1min]) {
-            notifiedRef.current[key1min] = true;
-            playBeep(1);
-            sendNotification("あと1分!", t.name + " の収穫まであと1分です");
-          }
-          if (remain <= 0 && !notifiedRef.current[keyDone]) {
-            notifiedRef.current[keyDone] = true;
-            playBeep(2);
-            sendNotification("収穫OK!", t.name + " が収穫できます!");
-          }
-        });
-        return prev;
-      });
+      setTimers(prev => { prev.forEach(t => {
+        const remain = t.harvestAt - Date.now();
+        const k1 = t.id + "_1m", kd = t.id + "_done";
+        if (remain <= 60000 && remain > 0 && !notifiedRef.current[k1]) { notifiedRef.current[k1] = true; playBeep(1); sendNotification("あと1分!", t.name + " の収穫まであと1分"); }
+        if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2); sendNotification("収穫OK!", t.name + " が収穫できます!"); }
+      }); return prev; });
     }, 1000);
     return () => clearInterval(id);
   }, []);
-
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
     const mins = crop === "カスタム" ? (parseFloat(customH) || 1) * 60 : c.min;
     const name = crop === "カスタム" ? (customName || "カスタム") : crop;
-    setTimers(p => [...p, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000, tip: c ? c.tip : "" }]);
+    setTimers(p => [...p, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000 }]);
   };
-
-  const fmtRemain = (ms) => {
-    if (ms <= 0) return "収穫OK!";
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    const s = Math.floor((ms % 60000) / 1000);
-    return h > 0 ? `${h}h${m}m${s}s` : `${m}m${s}s`;
-  };
+  const fmtRemain = (ms) => { if (ms <= 0) return "収穫OK!"; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return h > 0 ? `${h}h${m}m${s}s` : `${m}m${s}s`; };
   const fmtDuration = (min) => min >= 60 ? `${min / 60}時間` : `${min}分`;
-
+  const fmtTime = (ts) => { const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; };
   return (
     <Card>
       <SectionTitle emoji="🌱">栽培タイマー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠の実際の収穫時間。ブランクから種を購入して育てます</div>
-      {!notifEnabled && (
-        <div style={{ marginBottom: 10 }}>
-          <IconBtn onClick={requestNotif} color={C.accent}>🔔 通知を許可する</IconBtn>
-          <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>バックグラウンドでも通知が届きます</span>
-        </div>
-      )}
-      {notifEnabled && (
-        <div style={{ fontSize: 11, color: C.green, marginBottom: 10 }}>🔔 通知ON — 1分前にピロン、収穫時にピロンピロン</div>
-      )}
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠の実際の収穫時間</div>
+      {!notifEnabled && <div style={{ marginBottom: 10 }}><IconBtn onClick={requestNotif} color={C.accent}>🔔 通知を許可する</IconBtn><span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>1分前と収穫時に通知</span></div>}
+      {notifEnabled && <div style={{ fontSize: 11, color: C.green, marginBottom: 10 }}>🔔 通知ON — 1分前にピロン、収穫時にピロンピロン</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <Select value={crop} onChange={e => setCrop(e.target.value)} style={{ flex: 1, minWidth: 120 }}>
           {CROPS.map(c => <option key={c.name} value={c.name}>{c.name}{c.min ? ` (${fmtDuration(c.min)})` : ""}{c.lv && c.lv !== "-" ? ` Lv${c.lv}` : ""}</option>)}
@@ -159,10 +119,13 @@ function CropTimer() {
         {timers.map(t => { const remain = t.harvestAt - Date.now(); const done = remain <= 0; const warn = remain > 0 && remain <= 60000; const pct = Math.min(100, Math.max(0, ((Date.now() - t.planted) / (t.harvestAt - t.planted)) * 100)); return (
           <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: done ? C.greenSoft : warn ? C.goldSoft : C.bg, border: `1px solid ${done ? C.green : warn ? C.gold : C.border}` }}>
             <span style={{ fontSize: 20 }}>{done ? "🌾" : warn ? "⏰" : "🌿"}</span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div><div style={{ fontSize: 12, color: done ? C.green : warn ? C.gold : C.textMuted, fontWeight: done || warn ? 700 : 400 }}>{fmtRemain(remain)}</div>
-              {!done && <div style={{ height: 4, borderRadius: 2, background: C.border, marginTop: 4 }}><div style={{ height: 4, borderRadius: 2, background: done ? C.green : warn ? C.gold : C.green, width: `${pct}%`, transition: "width 1s linear" }} /></div>}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: done ? C.green : warn ? C.gold : C.textMuted, fontWeight: done || warn ? 700 : 400 }}>{fmtRemain(remain)}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>📍 収穫予定: {fmtTime(t.harvestAt)}</div>
+              {!done && <div style={{ height: 4, borderRadius: 2, background: C.border, marginTop: 4 }}><div style={{ height: 4, borderRadius: 2, background: warn ? C.gold : C.green, width: `${pct}%`, transition: "width 1s linear" }} /></div>}
             </div>
-            <button onClick={() => { setTimers(p => p.filter(x => x.id !== t.id)); delete notifiedRef.current[t.id + "_1min"]; delete notifiedRef.current[t.id + "_done"]; }} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
+            <button onClick={() => { setTimers(p => p.filter(x => x.id !== t.id)); delete notifiedRef.current[t.id+"_1m"]; delete notifiedRef.current[t.id+"_done"]; }} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
           </div>); })}
       </div>
     </Card>);
@@ -359,7 +322,7 @@ const RECIPES = [
   
   { name: "ナスのひき肉の炒め物", mats: ["ナス x1", "肉 x1", "料理油 x1", "トマトソース x1"], sell1: 1230, },
   ];
-function RecipeCalc() {
+  function RecipeCalc() {
   const [search, setSearch] = useState(""); const [sort, setSort] = useState("sell1");
   const filtered = useMemo(() => {
     let list = RECIPES.map(r => ({ ...r, sell5: Math.round(r.sell1 * 4) }));
@@ -370,7 +333,7 @@ function RecipeCalc() {
   return (
     <Card>
       <SectionTitle emoji="🍳">レシピ逆引き & 金策計算</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wikiの情報をもとにしたデータです。★5は★1の約3〜5倍 (目安4倍で計算)</div>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>★5は★1の約3〜5倍 (目安4倍で計算)</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <Input placeholder="素材名 or 料理名で検索..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
         <Select value={sort} onChange={e => setSort(e.target.value)}><option value="sell1">★1売値順</option><option value="sell5">★5売値順</option><option value="name">名前順</option></Select>
@@ -385,7 +348,6 @@ function RecipeCalc() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               <Badge color={C.gold} bg={C.goldSoft}>★1: {r.sell1}G</Badge>
               <Badge color={C.green} bg={C.greenSoft}>★5: ~{r.sell5}G</Badge>
-              <Badge color={C.textMuted} bg={C.bg}>{r.src}</Badge>
             </div>
           </div>))}
       </div>
@@ -393,7 +355,7 @@ function RecipeCalc() {
     </Card>);
 }
 
-// ============ TAB 4: COLLECTION TRACKER (REAL DATA) ============
+// ============ TAB 4: COLLECTION TRACKER ============
 const FISH_DATA = [
   { name: "ヨーロピアンパーチ", weather: "全天気", time: "全時間", spot: "全ての川", lv: "-", sell: 75 },
   { name: "コウライエビ", weather: "全天気", time: "全時間", spot: "全ての川", lv: "-", sell: 50 },
@@ -484,10 +446,8 @@ const BIRD_DATA = [
   { name: "ナナイロフウキンチョウ", weather: "虹", time: "全時間", spot: "郊外", lv: "9", sell: 30 },
   { name: "ロクショウヒタキ", weather: "虹", time: "全時間", spot: "森ジャンプステージ", lv: "10", sell: 30 },
 ];
-
 const WEATHER_OPTS = ["全て", "全天気", "晴虹", "雨雪虹", "虹"];
 const COLLECTIONS = { fish: FISH_DATA, bug: BUG_DATA, bird: BIRD_DATA };
-
 function CollectionTracker() {
   const [tab, setTab] = useState("fish"); const [caught, setCaught] = useState({});
   const [wFilter, setWFilter] = useState("全て"); const [search, setSearch] = useState(""); const [hideOwned, setHideOwned] = useState(false);
@@ -504,7 +464,7 @@ function CollectionTracker() {
   return (
     <Card>
       <SectionTitle emoji="📖">図鑑コンプトラッカー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠の実データ。売値は★1基準 (★5は約8倍)</div>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠。売値は★1基準</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>{Object.entries(tabLabels).map(([k, l]) => <IconBtn key={k} active={tab === k} color={tabColors[k]} onClick={() => setTab(k)}>{l}</IconBtn>)}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <Badge color={tabColors[tab]} bg={tab === "fish" ? C.blueSoft : tab === "bug" ? C.greenSoft : C.purpleSoft}>{ownedCount}/{total}</Badge>
@@ -532,7 +492,7 @@ function CollectionTracker() {
 function FurnitureCatalog() {
   const [items, setItems] = useState([{ id: 1, name: "パステルソファ", source: "家具屋", cost: 3200, owned: false, memo: "" }, { id: 2, name: "星のランプ", source: "ガチャ", cost: 0, owned: false, memo: "欲しい!" }, { id: 3, name: "レンガの壁", source: "建材屋", cost: 800, owned: true, memo: "2F外壁用" }]);
   const [newName, setNewName] = useState(""); const [newSource, setNewSource] = useState(""); const [newCost, setNewCost] = useState("");
-  const [layoutMemo, setLayoutMemo] = useState("1F: リビング+キッチン\n2F: 寝室 (星のランプをベッドサイドに)\n庭: ガーデンエリア");
+  const [layoutMemo, setLayoutMemo] = useState("1F: リビング+キッチン\n2F: 寝室\n庭: ガーデンエリア");
   const totalCost = items.filter(i => !i.owned && i.cost > 0).reduce((s, i) => s + i.cost, 0);
   return (
     <Card>
@@ -571,7 +531,7 @@ function GachaCounter() {
   return (
     <Card>
       <SectionTitle emoji="🎰">ガチャ天井カウンター</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>天井到達前に未入手アイテムが出ると天井リセットされるため、慎重に計画しましょう</div>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>天井到達前に未入手アイテムが出ると天井リセット</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {banners.map(b => { const rem = Math.max(0, b.pity - b.pulls); const need = rem * b.stonesPerPull; const ok = b.stonesOwned >= need; const pct = b.pity > 0 ? Math.min(100, Math.round((b.pulls / b.pity) * 100)) : 0; return (
           <div key={b.id} style={{ padding: 14, borderRadius: 14, background: C.bg, border: `1px solid ${C.border}` }}>
@@ -602,14 +562,69 @@ function GachaCounter() {
     </Card>);
 }
 
+// ============ TAB 7: COMPACT OVERLAY (配信者モード) ============
+function CompactOverlay({ tasks, timers, caught }) {
+  const [, setTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
+  const doneCount = tasks.filter(t => t.done).length;
+  const taskPct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const fishTotal = FISH_DATA.length; const fishOwned = FISH_DATA.filter(i => caught["fish:" + i.name]).length;
+  const bugTotal = BUG_DATA.length; const bugOwned = BUG_DATA.filter(i => caught["bug:" + i.name]).length;
+  const birdTotal = BIRD_DATA.length; const birdOwned = BIRD_DATA.filter(i => caught["bird:" + i.name]).length;
+  const fmtRemain = (ms) => { if (ms <= 0) return "収穫OK!"; const m = Math.floor(ms / 60000); const s = Math.floor((ms % 60000) / 1000); return `${m}:${String(s).padStart(2, "0")}`; };
+  const fmtTime = (ts) => { const d = new Date(ts); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+
+  return (
+    <div style={{ background: "rgba(255,248,240,0.92)", borderRadius: 16, padding: 16, maxWidth: 320, fontFamily: "'Helvetica Neue','Hiragino Sans',sans-serif", color: C.text, border: `1px solid ${C.border}`, backdropFilter: "blur(8px)" }}>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10, textAlign: "center" }}>🏡 ハートピア LIVE</div>
+
+      {/* Daily Progress */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📋 今日の進捗</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: `${taskPct}%`, transition: "width .3s" }} /></div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: taskPct === 100 ? C.green : C.accent }}>{doneCount}/{tasks.length}</span>
+        </div>
+      </div>
+
+      {/* Crop Timers */}
+      {timers.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>🌱 栽培</div>
+          {timers.map(t => { const remain = t.harvestAt - Date.now(); const done = remain <= 0; return (
+            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "2px 0", color: done ? C.green : C.text }}>
+              <span>{done ? "🌾" : "🌿"} {t.name}</span>
+              <span style={{ fontWeight: 600 }}>{done ? "収穫OK!" : fmtRemain(remain)} ({fmtTime(t.harvestAt)})</span>
+            </div>); })}
+        </div>
+      )}
+
+      {/* Collection Progress */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📖 図鑑コンプ率</div>
+        <div style={{ display: "flex", gap: 8, fontSize: 11 }}>
+          <span>🐟 {fishOwned}/{fishTotal}</span>
+          <span>🦋 {bugOwned}/{bugTotal}</span>
+          <span>🐦 {birdOwned}/{birdTotal}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============ MAIN APP ============
 const TABS = [
   { key: "crop", label: "🌱 栽培", color: C.green }, { key: "daily", label: "📋 デイリー", color: C.accent },
   { key: "recipe", label: "🍳 レシピ", color: C.pink }, { key: "collect", label: "📖 図鑑", color: C.blue },
   { key: "furniture", label: "🏠 家具", color: C.purple }, { key: "gacha", label: "🎰 ガチャ", color: C.accent },
+  { key: "overlay", label: "🎬 配信", color: C.purple },
 ];
 export default function App() {
   const [activeTab, setActiveTab] = useState("crop");
+  const [tasks, setTasks] = useState(DEFAULT_TASKS.map(t => ({ ...t, done: false })));
+  const [timers, setTimers] = useState([]);
+  const [caught, setCaught] = useState({});
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
       <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: `1px solid ${C.border}` }}>
@@ -620,13 +635,21 @@ export default function App() {
         {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
       </div>
       <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
-     <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
+        <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
         <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
         <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
         <div style={{ display: activeTab === "collect" ? "block" : "none" }}><CollectionTracker /></div>
         <div style={{ display: activeTab === "furniture" ? "block" : "none" }}><FurnitureCatalog /></div>
         <div style={{ display: activeTab === "gacha" ? "block" : "none" }}><GachaCounter /></div>
+        <div style={{ display: activeTab === "overlay" ? "block" : "none" }}>
+          <Card>
+            <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
+            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースに URL/?overlay=true を入れると、このコンパクト表示だけが表示されます。配信画面に重ねて使えます!</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
+            <CompactOverlay tasks={tasks} timers={timers} caught={caught} />
+          </Card>
+        </div>
       </div>
-      <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール — 攻略Wiki/Note(tam様)等の公開情報を参考</div>
+      <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール</div>
     </div>);
 }
