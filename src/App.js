@@ -77,7 +77,7 @@ function CropTimer() {
   const [customName, setCustomName] = useState("");
   const [, setTick] = useState(0);
   const [notifEnabled, setNotifEnabled] = useState(false);
-  const notifiedRef = React.useRef ? React.useRef({}) : { current: {} };
+  const notifiedRef = useRef({});
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "granted") {
