@@ -4,9 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 // ★★★ ここにあなたのJSONBin情報を入れてください ★★★
 // ============================================================
 const JSONBIN_BIN_ID = "6a386bcdf5f4af5e291a1ce9";
-const JSONBIN_API_KEY = "$2a$10$q/q7hSIaabH6Hfem.f5iPu.arUr3yBBINi.b8S6TNGHJwFgiGZNOa
-
-";
+const JSONBIN_API_KEY = "$2a$10$q/q7hSIaabH6Hfem.f5iPu.arUr3yBBINi.b8S6TNGHJwFgiGZNOa";
 // ============================================================
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
@@ -24,7 +22,6 @@ const C = {
 function loadJSON(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; } }
 function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
 
-// 6:00 JST リセット用のゲーム日付を返す
 function getGameDay(now) {
   const d = now || new Date();
   const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
@@ -66,7 +63,6 @@ function sendNotification(title, body) {
   if ("Notification" in window && Notification.permission === "granted") { try { new Notification(title, { body }); } catch(e) {} }
 }
 
-// ============ TAB 1: CROP TIMER ============
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用" },
   { name: "稲", min: 20, lv: "1", tip: "" },
@@ -143,7 +139,6 @@ function CropTimer() {
     </Card>);
 }
 
-// ============ TAB 2: DAILY TASKS ============
 const DEFAULT_TASKS = [
   { id: 1, text: "ログインボーナス受取", cat: "管理" }, { id: 2, text: "ショップ巡回 (日替わり/週替わり確認)", cat: "管理" },
   { id: 3, text: "デイリー依頼クリア", cat: "依頼" }, { id: 4, text: "ウィークリー依頼 進捗確認", cat: "依頼" },
@@ -183,7 +178,6 @@ function DailyTasks() {
     </Card>);
 }
 
-// ============ TAB 3: RECIPE ============
 const RECIPES = [
   { name: "田舎サラダ", mats: ["野菜 x2"], sell1: 90 },
   { name: "ミックスジャム", mats: ["果物 x4 (種類混合)"], sell1: 160 },
@@ -293,7 +287,6 @@ function RecipeCalc() {
     </Card>);
 }
 
-// ============ TAB 4: COLLECTION TRACKER ============
 const FISH_DATA=[{name:"ヨーロピアンパーチ",weather:"全天気",time:"全時間",spot:"全ての川",lv:"-",sell:75},{name:"コウライエビ",weather:"全天気",time:"全時間",spot:"全ての川",lv:"-",sell:50},{name:"シマドジョウ",weather:"全天気",time:"全時間",spot:"巨木の川",lv:"-",sell:50},{name:"バーベル",weather:"全天気",time:"全時間",spot:"浅水川",lv:"-",sell:75},{name:"ミノー",weather:"全天気",time:"全時間",spot:"静川",lv:"-",sell:50},{name:"イシドジョウ",weather:"全天気",time:"全時間",spot:"郊外の湖",lv:"2",sell:100},{name:"キュウリウオ",weather:"全天気",time:"全時間",spot:"草原の湖",lv:"2",sell:100},{name:"マッドサンフィッシュ",weather:"全天気",time:"6:00-24:00",spot:"森の湖",lv:"2",sell:100},{name:"パイクパーチ",weather:"晴虹",time:"全時間",spot:"巨木の川",lv:"3",sell:230},{name:"イガイ",weather:"雨雪虹",time:"全時間",spot:"郊外の湖",lv:"3",sell:100},{name:"オタマジャクシ",weather:"雨雪虹",time:"全時間",spot:"温泉山の湖",lv:"3",sell:100},{name:"北欧アカザエビ",weather:"全天気",time:"0:00-12:00 18:00-24:00",spot:"森の湖",lv:"3",sell:100},{name:"オオクチバス",weather:"晴虹",time:"全時間",spot:"森の湖",lv:"4",sell:230},{name:"バタフライコイ",weather:"雨雪虹",time:"全時間",spot:"草原の湖",lv:"4",sell:320},{name:"カワメンタイ",weather:"全天気",time:"12:00-24:00",spot:"静川",lv:"4",sell:230},{name:"ヨーロッパコイ",weather:"晴虹",time:"12:00-24:00",spot:"霞川",lv:"4",sell:230},{name:"マス",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"草原の湖",lv:"5",sell:230},{name:"カワギンボ",weather:"全天気",time:"全時間",spot:"露川",lv:"5",sell:150},{name:"シロザケ",weather:"虹",time:"全時間",spot:"静川",lv:"6",sell:150},{name:"シンジュガイ",weather:"虹",time:"全時間",spot:"森の湖",lv:"6",sell:380},{name:"カワヒメマス",weather:"全天気",time:"全時間",spot:"郊外の湖",lv:"6",sell:230},{name:"カジカ",weather:"雨雪虹",time:"6:00-24:00",spot:"温泉山の湖",lv:"7",sell:150},{name:"イトヨ",weather:"雨雪虹",time:"全時間",spot:"浅水川",lv:"7",sell:150},{name:"アプロケイルス",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"郊外の湖",lv:"7",sell:150},{name:"北欧ブルーアカザエビ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"森の湖",lv:"8",sell:250},{name:"キンギョ",weather:"雨雪虹",time:"6:00-24:00",spot:"草原の湖",lv:"8",sell:250},{name:"マッドミノー",weather:"晴虹",time:"0:00-12:00",spot:"郊外の湖",lv:"8",sell:250},{name:"ドナウイトウ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"巨木の川",lv:"9",sell:380},{name:"パンプキンシード",weather:"晴虹",time:"6:00-24:00",spot:"温泉山の湖",lv:"9",sell:250},{name:"ノーザンパイク",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"郊外の湖",lv:"9",sell:670},{name:"ヨーロッパナマズ",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"草原の湖",lv:"10",sell:610},{name:"ホッキョクイワナ",weather:"雨雪虹",time:"12:00-24:00",spot:"森の湖",lv:"10",sell:610},{name:"ブルーギル",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"温泉山の湖",lv:"10",sell:395},{name:"ニシイワシ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:50},{name:"スズキ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:75},{name:"カツオ",weather:"全天気",time:"全時間",spot:"全ての海",lv:"-",sell:210},{name:"タチウオ",weather:"全天気",time:"全時間",spot:"そよ風の海",lv:"-",sell:105},{name:"ウミエビ",weather:"全天気",time:"全時間",spot:"東海",lv:"-",sell:50},{name:"ウミトゲウオ",weather:"全天気",time:"全時間",spot:"旧海",lv:"-",sell:50},{name:"カクレクマノミ",weather:"全天気",time:"全時間",spot:"旧海",lv:"3",sell:100},{name:"フグ",weather:"全天気",time:"12:00-24:00",spot:"旧海",lv:"6",sell:230},{name:"タブ・ガーナード",weather:"虹",time:"全時間",spot:"東海",lv:"6",sell:380},{name:"スペインダイ",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"そよ風の海",lv:"7",sell:230},{name:"ヨーロッパウナギ",weather:"虹",time:"6:00-24:00",spot:"旧海",lv:"7",sell:380},{name:"モンツキダラ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"東海",lv:"8",sell:230},{name:"マンボウ",weather:"全天気",time:"0:00-12:00",spot:"東海",lv:"9",sell:850},{name:"ミナミマグロ",weather:"虹",time:"6:00-18:00",spot:"そよ風の海",lv:"9",sell:850},{name:"シュモクザメ",weather:"虹",time:"0:00-6:00 18:00-24:00",spot:"旧海",lv:"10",sell:850},{name:"メカジキ",weather:"虹",time:"6:00-18:00",spot:"クジラ海",lv:"10",sell:850},{name:"アオザメ",weather:"虹",time:"6:00-18:00",spot:"釣りクエスト",lv:"10",sell:850}];
 const BUG_DATA=[{name:"アカイトトンボ",weather:"全天気",time:"全時間",spot:"水辺",lv:"-",sell:35},{name:"アスバラカズハムシ",weather:"全天気",time:"全時間",spot:"花畑",lv:"-",sell:55},{name:"イカルスヒメシジミ",weather:"全天気",time:"全時間",spot:"中心街",lv:"2",sell:105},{name:"アオホシハナムグリ",weather:"雨雪虹",time:"全時間",spot:"ホーム",lv:"2",sell:165},{name:"ナナホシテントウ",weather:"雨雪虹",time:"全時間",spot:"郊外",lv:"2",sell:110},{name:"アカエリトリバネアゲハ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"ホーム",lv:"3",sell:90},{name:"アカハネムシ",weather:"全天気",time:"全時間",spot:"温泉山",lv:"3",sell:110},{name:"アリ",weather:"全天気",time:"全時間",spot:"漁村広場",lv:"3",sell:220},{name:"イリスコムラサキ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"花畑/クジラ山",lv:"3",sell:90},{name:"アルキプテラフスカ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"郊外",lv:"4",sell:140},{name:"ニジイロカマキリ",weather:"晴虹",time:"0:00-6:00 12:00-24:00",spot:"温泉山",lv:"4",sell:195},{name:"ツマグロヒョウモン",weather:"雨雪虹",time:"0:00-12:00 18:00-24:00",spot:"漁村桟橋",lv:"4",sell:90},{name:"タケウチトゲムネカマキリ",weather:"虹",time:"全時間",spot:"森の島",lv:"5",sell:165},{name:"ナミテントウ",weather:"雨雪虹",time:"0:00-6:00 12:00-24:00",spot:"森コジカ塔",lv:"5",sell:165},{name:"アオハダトンボ",weather:"雨雪虹",time:"全時間",spot:"森の湖",lv:"6",sell:110},{name:"ビューティースペキオーサ",weather:"雨雪虹",time:"6:00-18:00",spot:"クジラ山",lv:"7",sell:275},{name:"ロサトンボ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"温泉山湖",lv:"7",sell:185},{name:"イザベラミズアオ",weather:"晴虹",time:"12:00-24:00",spot:"不思議な松林",lv:"8",sell:105},{name:"ピカソバグ",weather:"晴虹",time:"0:00-6:00 18:00-24:00",spot:"花畑/パープルビーチ",lv:"8",sell:185},{name:"青いクマバチ",weather:"虹",time:"0:00-6:00 12:00-24:00",spot:"漁村広場",lv:"9",sell:440},{name:"オウゴンオニクワガタ",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"不思議な松林",lv:"9",sell:440},{name:"シンジュタテハ",weather:"雨雪虹",time:"0:00-12:00",spot:"風車の花畑",lv:"9",sell:300},{name:"タイヨウモルフォ",weather:"虹",time:"6:00-18:00",spot:"森コジカ塔",lv:"10",sell:500}];
 const BIRD_DATA=[{name:"スズメ",weather:"全天気",time:"全時間",spot:"中心街",lv:"-",sell:20},{name:"エナガ",weather:"全天気",time:"全時間",spot:"中心街/郊外",lv:"-",sell:20},{name:"コマドリ",weather:"全天気",time:"全時間",spot:"郊外",lv:"2",sell:25},{name:"カワセミ",weather:"晴虹",time:"6:00-18:00",spot:"川辺",lv:"3",sell:25},{name:"オオルリ",weather:"全天気",time:"6:00-18:00",spot:"森",lv:"4",sell:30},{name:"フクロウ",weather:"全天気",time:"0:00-6:00 18:00-24:00",spot:"森",lv:"5",sell:30},{name:"ハヤブサ",weather:"雨雪虹",time:"6:00-18:00",spot:"郊外/温泉山",lv:"6",sell:35},{name:"ワシミミズク",weather:"雨雪虹",time:"0:00-6:00 18:00-24:00",spot:"森/温泉山",lv:"7",sell:35},{name:"アジサシ",weather:"虹",time:"全時間",spot:"東海",lv:"7",sell:35},{name:"ナナイロフウキンチョウ",weather:"虹",time:"全時間",spot:"郊外",lv:"9",sell:30},{name:"ロクショウヒタキ",weather:"虹",time:"全時間",spot:"森ジャンプステージ",lv:"10",sell:30}];
@@ -341,17 +334,8 @@ function CollectionTracker() {
     </Card>);
 }
 
-// ============ TAB 5: DAILY GATHERING (v5 番地チェック対応) ============
-const OAK_SPOTS = [
-  "1番地", "2番地", "3番地", "4番地", "5番地", "6番地",
-  "7番地", "8番地", "9番地", "10番地", "11番地", "12番地",
-  "不思議な松林", "温泉山遺跡",
-];
-const FLUORITE_SPOTS = [
-  "1番地", "2番地", "3番地", "4番地", "5番地", "6番地",
-  "7番地", "8番地", "9番地", "10番地", "11番地", "12番地",
-  "温泉山の湖",
-];
+const OAK_SPOTS = ["1番地","2番地","3番地","4番地","5番地","6番地","7番地","8番地","9番地","10番地","11番地","12番地","不思議な松林","温泉山遺跡"];
+const FLUORITE_SPOTS = ["1番地","2番地","3番地","4番地","5番地","6番地","7番地","8番地","9番地","10番地","11番地","12番地","温泉山の湖"];
 const OTHER_GATHER = [
   { id: "rarewood", name: "レア木材", maxDaily: 8, spot: "郊外の巨木 (8箇所)", tip: "2時間ごとに再採取可能", emoji: "🪵" },
   { id: "stone", name: "石", maxDaily: 0, spot: "各地の岩", tip: "上限なし。建築素材", emoji: "🪨" },
@@ -360,96 +344,49 @@ const OTHER_GATHER = [
   { id: "bamboo", name: "竹", maxDaily: 0, spot: "竹林エリア", tip: "建築素材", emoji: "🎋" },
 ];
 
-// JSONBinからデータ読み込み
 async function fetchBanchiData() {
   try {
-    const res = await fetch(JSONBIN_URL + "/latest", {
-      headers: { "X-Master-Key": JSONBIN_API_KEY },
-    });
+    const res = await fetch(JSONBIN_URL + "/latest", { headers: { "X-Master-Key": JSONBIN_API_KEY } });
     if (!res.ok) return null;
     const json = await res.json();
     return json.record || null;
   } catch (e) { return null; }
 }
-
-// JSONBinにデータ書き込み（管理者用）
 async function saveBanchiData(data) {
   try {
-    const res = await fetch(JSONBIN_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": JSONBIN_API_KEY,
-      },
-      body: JSON.stringify(data),
-    });
+    const res = await fetch(JSONBIN_URL, { method: "PUT", headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY }, body: JSON.stringify(data) });
     return res.ok;
   } catch (e) { return false; }
 }
 
-function BanchiCard({ type, emoji, label, color, colorSoft, colorBorder, spots, todaySpots, harvestCount, onHarvest }) {
+function BanchiCard({ emoji, label, color, colorSoft, colorBorder, spots, todaySpots, harvestCount, onHarvest }) {
   const hasData = todaySpots && todaySpots.length > 0;
   return (
-    <div style={{
-      background: colorSoft, borderRadius: 16, padding: 18,
-      border: `2px solid ${colorBorder}`,
-      marginBottom: 12,
-    }}>
+    <div style={{ background: colorSoft, borderRadius: 16, padding: 18, border: "2px solid " + colorBorder, marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <span style={{ fontSize: 36 }}>{emoji}</span>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 16, color }}>{label}</div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: color }}>{label}</div>
           <div style={{ fontSize: 11, color: C.textMuted }}>1日3回まで採取 / 毎朝6:00リセット</div>
         </div>
       </div>
-
-      {/* 採取カウンター */}
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
         {[1, 2, 3].map(n => (
-          <button key={n} onClick={() => onHarvest(n)} style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: harvestCount >= n ? color : "#fff",
-            color: harvestCount >= n ? "#fff" : color,
-            border: `2px solid ${color}`,
-            fontWeight: 800, fontSize: 15, cursor: "pointer",
-            transition: "all .15s",
-          }}>{n}</button>
+          <button key={n} onClick={() => onHarvest(n)} style={{ width: 40, height: 40, borderRadius: 10, background: harvestCount >= n ? color : "#fff", color: harvestCount >= n ? "#fff" : color, border: "2px solid " + color, fontWeight: 800, fontSize: 15, cursor: "pointer", transition: "all .15s" }}>{n}</button>
         ))}
-        <span style={{
-          fontSize: 12, fontWeight: 700, color: harvestCount >= 3 ? color : C.textMuted,
-          alignSelf: "center", marginLeft: 4,
-        }}>
-          {harvestCount >= 3 ? "採取完了!" : `${harvestCount}/3`}
-        </span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: harvestCount >= 3 ? color : C.textMuted, alignSelf: "center", marginLeft: 4 }}>{harvestCount >= 3 ? "採取完了!" : harvestCount + "/3"}</span>
       </div>
-
-      {/* 今日の出現場所 */}
-      <div style={{
-        background: "#fff", borderRadius: 12, padding: 12,
-        border: `1px solid ${colorBorder}`,
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>
-          今日の出現場所
-        </div>
+      <div style={{ background: "#fff", borderRadius: 12, padding: 12, border: "1px solid " + colorBorder }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: color, marginBottom: 8 }}>今日の出現場所</div>
         {hasData ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {spots.map(spot => {
               const active = todaySpots.includes(spot);
-              return (
-                <span key={spot} style={{
-                  fontSize: 12, padding: "4px 10px", borderRadius: 8,
-                  fontWeight: active ? 700 : 400,
-                  background: active ? color : "#f5f5f5",
-                  color: active ? "#fff" : "#bbb",
-                  border: `1px solid ${active ? color : "#e0e0e0"}`,
-                }}>{spot}</span>
-              );
+              return (<span key={spot} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, fontWeight: active ? 700 : 400, background: active ? color : "#f5f5f5", color: active ? "#fff" : "#bbb", border: "1px solid " + (active ? color : "#e0e0e0") }}>{spot}</span>);
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", padding: "8px 0" }}>
-            まだ更新されていません
-          </div>
+          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", padding: "8px 0" }}>まだ更新されていません</div>
         )}
       </div>
     </div>
@@ -464,64 +401,34 @@ function DailyGathering() {
     const saved = loadJSON("hp_gather_v5", { date: "", oakCount: 0, fluoriteCount: 0, items: {} });
     return saved.date === gameDay ? saved : { date: gameDay, oakCount: 0, fluoriteCount: 0, items: {} };
   });
-
   useEffect(() => { saveJSON("hp_gather_v5", localData); }, [localData]);
-
-  // JSONBinから今日の番地データを取得
   useEffect(() => {
     fetchBanchiData().then(data => {
-      if (data && data.date === gameDay) {
-        setBanchiData(data);
-      }
+      if (data && data.date === gameDay) setBanchiData(data);
       setLoading(false);
     });
   }, [gameDay]);
-
   const setOakCount = (n) => setLocalData(p => ({ ...p, oakCount: p.oakCount === n ? n - 1 : n }));
   const setFluoriteCount = (n) => setLocalData(p => ({ ...p, fluoriteCount: p.fluoriteCount === n ? n - 1 : n }));
   const toggleItem = (id) => setLocalData(p => ({ ...p, items: { ...p.items, [id]: !p.items[id] } }));
-
   const otherDone = OTHER_GATHER.filter(g => localData.items[g.id]).length;
-
   return (
     <Card style={{ padding: 14 }}>
       <SectionTitle emoji="⛏️">デイリー採集トラッカー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
-        毎朝6:00(JST)自動リセット — 番地情報はみんなで共有
-      </div>
-
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>毎朝6:00(JST)自動リセット — 番地情報はみんなで共有</div>
       {loading ? (
         <div style={{ textAlign: "center", padding: 20, color: C.textMuted, fontSize: 13 }}>読み込み中...</div>
       ) : (
         <>
-          {/* ツルツルオーク */}
-          <BanchiCard
-            type="oak" emoji="🌳" label="ツルツルオーク"
-            color={C.oakGreen} colorSoft={C.oakGreenSoft} colorBorder={C.oakGreenBorder}
-            spots={OAK_SPOTS}
-            todaySpots={banchiData?.oak || []}
-            harvestCount={localData.oakCount}
-            onHarvest={setOakCount}
-          />
-
-          {/* 無垢な蛍石 */}
-          <BanchiCard
-            type="fluorite" emoji="💎" label="無垢な蛍石"
-            color={C.gemBlue} colorSoft={C.gemBlueSoft} colorBorder={C.gemBlueBorder}
-            spots={FLUORITE_SPOTS}
-            todaySpots={banchiData?.fluorite || []}
-            harvestCount={localData.fluoriteCount}
-            onHarvest={setFluoriteCount}
-          />
+          <BanchiCard emoji="🌳" label="ツルツルオーク" color={C.oakGreen} colorSoft={C.oakGreenSoft} colorBorder={C.oakGreenBorder} spots={OAK_SPOTS} todaySpots={banchiData ? banchiData.oak || [] : []} harvestCount={localData.oakCount} onHarvest={setOakCount} />
+          <BanchiCard emoji="💎" label="無垢な蛍石" color={C.gemBlue} colorSoft={C.gemBlueSoft} colorBorder={C.gemBlueBorder} spots={FLUORITE_SPOTS} todaySpots={banchiData ? banchiData.fluorite || [] : []} harvestCount={localData.fluoriteCount} onHarvest={setFluoriteCount} />
         </>
       )}
-
-      {/* その他の採集素材 */}
       <div style={{ marginTop: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>その他の採集</div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}>
-            <div style={{ height: 6, borderRadius: 3, background: otherDone === OTHER_GATHER.length ? C.green : C.accent, width: `${Math.round((otherDone / OTHER_GATHER.length) * 100)}%`, transition: "width .3s" }} />
+            <div style={{ height: 6, borderRadius: 3, background: otherDone === OTHER_GATHER.length ? C.green : C.accent, width: Math.round((otherDone / OTHER_GATHER.length) * 100) + "%", transition: "width .3s" }} />
           </div>
           <span style={{ fontSize: 12, fontWeight: 700, color: otherDone === OTHER_GATHER.length ? C.green : C.accent }}>{otherDone}/{OTHER_GATHER.length}</span>
         </div>
@@ -529,11 +436,7 @@ function DailyGathering() {
           {OTHER_GATHER.map(g => {
             const done = localData.items[g.id];
             return (
-              <div key={g.id} onClick={() => toggleItem(g.id)} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                borderRadius: 10, background: done ? C.greenSoft : C.bg,
-                border: `1px solid ${done ? C.green : C.border}`, cursor: "pointer",
-              }}>
+              <div key={g.id} onClick={() => toggleItem(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: done ? C.greenSoft : C.bg, border: "1px solid " + (done ? C.green : C.border), cursor: "pointer" }}>
                 <span style={{ fontSize: 18 }}>{g.emoji}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -552,7 +455,6 @@ function DailyGathering() {
   );
 }
 
-// ============ ADMIN: 番地管理画面 ============
 function AdminPanel() {
   const gameDay = getGameDay();
   const [oak, setOak] = useState([]);
@@ -560,37 +462,25 @@ function AdminPanel() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [loaded, setLoaded] = useState(false);
-
   useEffect(() => {
     fetchBanchiData().then(data => {
-      if (data && data.date === gameDay) {
-        setOak(data.oak || []);
-        setFluorite(data.fluorite || []);
-      }
+      if (data && data.date === gameDay) { setOak(data.oak || []); setFluorite(data.fluorite || []); }
       setLoaded(true);
     });
   }, [gameDay]);
-
-  const toggleSpot = (list, setList, spot) => {
-    setList(prev => prev.includes(spot) ? prev.filter(s => s !== spot) : [...prev, spot]);
-  };
-
+  const toggleSpot = (list, setList, spot) => { setList(prev => prev.includes(spot) ? prev.filter(s => s !== spot) : [...prev, spot]); };
   const handleSave = async () => {
     setSaving(true); setMsg("");
-    const ok = await saveBanchiData({ date: gameDay, oak, fluorite });
+    const ok = await saveBanchiData({ date: gameDay, oak: oak, fluorite: fluorite });
     setSaving(false);
     setMsg(ok ? "保存しました!" : "保存失敗...もう一度試してね");
   };
-
   if (!loaded) return <Card><div style={{ textAlign: "center", padding: 20, color: C.textMuted }}>読み込み中...</div></Card>;
-
   return (
     <Card>
       <SectionTitle emoji="🔧">番地管理（管理者用）</SectionTitle>
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>ゲーム日付: {gameDay}（6:00 JSTリセット）</div>
       <div style={{ fontSize: 11, color: C.accent, marginBottom: 16 }}>今日の出現番地をタップで選んで「保存」してね</div>
-
-      {/* ツルツルオーク */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 24 }}>🌳</span>
@@ -600,21 +490,10 @@ function AdminPanel() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {OAK_SPOTS.map(spot => {
             const active = oak.includes(spot);
-            return (
-              <button key={spot} onClick={() => toggleSpot(oak, setOak, spot)} style={{
-                fontSize: 13, padding: "6px 12px", borderRadius: 8,
-                fontWeight: active ? 700 : 400,
-                background: active ? C.oakGreen : "#fff",
-                color: active ? "#fff" : C.text,
-                border: `1.5px solid ${active ? C.oakGreen : C.border}`,
-                cursor: "pointer", transition: "all .12s",
-              }}>{spot}</button>
-            );
+            return (<button key={spot} onClick={() => toggleSpot(oak, setOak, spot)} style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, fontWeight: active ? 700 : 400, background: active ? C.oakGreen : "#fff", color: active ? "#fff" : C.text, border: "1.5px solid " + (active ? C.oakGreen : C.border), cursor: "pointer", transition: "all .12s" }}>{spot}</button>);
           })}
         </div>
       </div>
-
-      {/* 無垢な蛍石 */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 24 }}>💎</span>
@@ -624,42 +503,18 @@ function AdminPanel() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {FLUORITE_SPOTS.map(spot => {
             const active = fluorite.includes(spot);
-            return (
-              <button key={spot} onClick={() => toggleSpot(fluorite, setFluorite, spot)} style={{
-                fontSize: 13, padding: "6px 12px", borderRadius: 8,
-                fontWeight: active ? 700 : 400,
-                background: active ? C.gemBlue : "#fff",
-                color: active ? "#fff" : C.text,
-                border: `1.5px solid ${active ? C.gemBlue : C.border}`,
-                cursor: "pointer", transition: "all .12s",
-              }}>{spot}</button>
-            );
+            return (<button key={spot} onClick={() => toggleSpot(fluorite, setFluorite, spot)} style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, fontWeight: active ? 700 : 400, background: active ? C.gemBlue : "#fff", color: active ? "#fff" : C.text, border: "1.5px solid " + (active ? C.gemBlue : C.border), cursor: "pointer", transition: "all .12s" }}>{spot}</button>);
           })}
         </div>
       </div>
-
-      {/* 保存ボタン */}
-      <button onClick={handleSave} disabled={saving} style={{
-        width: "100%", padding: "12px 0", borderRadius: 12,
-        background: saving ? C.textMuted : "linear-gradient(135deg, " + C.oakGreen + ", " + C.gemBlue + ")",
-        color: "#fff", fontWeight: 800, fontSize: 15,
-        border: "none", cursor: saving ? "default" : "pointer",
-        transition: "all .15s",
-      }}>
+      <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "12px 0", borderRadius: 12, background: saving ? C.textMuted : "linear-gradient(135deg, " + C.oakGreen + ", " + C.gemBlue + ")", color: "#fff", fontWeight: 800, fontSize: 15, border: "none", cursor: saving ? "default" : "pointer", transition: "all .15s" }}>
         {saving ? "保存中..." : "保存する"}
       </button>
-
-      {msg && (
-        <div style={{
-          marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 600,
-          color: msg.includes("しました") ? C.green : C.danger,
-        }}>{msg}</div>
-      )}
+      {msg && <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 600, color: msg.includes("しました") ? C.green : C.danger }}>{msg}</div>}
     </Card>
   );
 }
 
-// ============ TAB 6: COMPACT OVERLAY ============
 function CompactOverlay() {
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
@@ -671,12 +526,12 @@ function CompactOverlay() {
   const bugOwned = BUG_DATA.filter(i => caught["bug:" + i.name]).length;
   const birdOwned = BIRD_DATA.filter(i => caught["bird:" + i.name]).length;
   return (
-    <div style={{ background: "rgba(255,248,240,0.92)", borderRadius: 16, padding: 16, maxWidth: 320, fontFamily: "'Helvetica Neue','Hiragino Sans',sans-serif", color: C.text, border: `1px solid ${C.border}`, backdropFilter: "blur(8px)" }}>
+    <div style={{ background: "rgba(255,248,240,0.92)", borderRadius: 16, padding: 16, maxWidth: 320, fontFamily: "'Helvetica Neue','Hiragino Sans',sans-serif", color: C.text, border: "1px solid " + C.border, backdropFilter: "blur(8px)" }}>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10, textAlign: "center" }}>🏡 ハートピア LIVE</div>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📋 今日の進捗</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: `${taskPct}%` }} /></div>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: taskPct + "%" }} /></div>
           <span style={{ fontSize: 12, fontWeight: 700, color: taskPct === 100 ? C.green : C.accent }}>{doneCount}/{tasks.length}</span>
         </div>
       </div>
@@ -691,7 +546,6 @@ function CompactOverlay() {
     </div>);
 }
 
-// ============ MAIN APP ============
 const TABS = [
   { key: "crop", label: "🌱 栽培", color: C.green },
   { key: "daily", label: "📋 デイリー", color: C.accent },
@@ -704,27 +558,24 @@ const TABS = [
 export default function App() {
   const [activeTab, setActiveTab] = useState("crop");
   const isAdmin = window.location.search.includes("admin=1");
-
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
-      <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: "1px solid " + C.border }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, textAlign: "center" }}>🏡 ハートピア ダッシュボード</h1>
         <p style={{ margin: "4px 0 0", fontSize: 12, color: C.textMuted, textAlign: "center" }}>攻略Wiki準拠 — All-in-One Tool</p>
       </div>
-
       {isAdmin && (
         <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
           <AdminPanel />
           <div style={{ textAlign: "center", marginTop: 12 }}>
-            <IconBtn onClick={() => window.location.search = ""} color={C.textMuted}>通常モードに戻る</IconBtn>
+            <IconBtn onClick={() => { window.location.search = ""; }} color={C.textMuted}>通常モードに戻る</IconBtn>
           </div>
         </div>
       )}
-
       {!isAdmin && (
         <>
-          <div style={{ display: "flex", overflowX: "auto", gap: 2, padding: "8px 8px 0", background: C.bg, borderBottom: `1px solid ${C.border}`, WebkitOverflowScrolling: "touch" }}>
-            {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
+          <div style={{ display: "flex", overflowX: "auto", gap: 2, padding: "8px 8px 0", background: C.bg, borderBottom: "1px solid " + C.border, WebkitOverflowScrolling: "touch" }}>
+            {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? "2.5px solid " + t.color : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
           </div>
           <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
             <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
@@ -743,7 +594,6 @@ export default function App() {
           </div>
         </>
       )}
-
       <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール v5</div>
     </div>
   );
