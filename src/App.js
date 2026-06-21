@@ -359,7 +359,7 @@ async function saveBanchiData(data) {
   } catch (e) { return false; }
 }
 
-function BanchiCard({ emoji, label, color, colorSoft, colorBorder, spots, todaySpots, harvestCount, onHarvest }) {
+function BanchiCard({ emoji, label, color, colorSoft, colorBorder, spots, todaySpots }) {
   const hasData = todaySpots && todaySpots.length > 0;
   return (
     <div style={{ background: colorSoft, borderRadius: 16, padding: 18, border: "2px solid " + colorBorder, marginBottom: 12 }}>
@@ -369,12 +369,6 @@ function BanchiCard({ emoji, label, color, colorSoft, colorBorder, spots, todayS
           <div style={{ fontWeight: 800, fontSize: 16, color: color }}>{label}</div>
           <div style={{ fontSize: 11, color: C.textMuted }}>1日3回まで採取 / 毎朝6:00リセット</div>
         </div>
-      </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {[1, 2, 3].map(n => (
-          <button key={n} onClick={() => onHarvest(n)} style={{ width: 40, height: 40, borderRadius: 10, background: harvestCount >= n ? color : "#fff", color: harvestCount >= n ? "#fff" : color, border: "2px solid " + color, fontWeight: 800, fontSize: 15, cursor: "pointer", transition: "all .15s" }}>{n}</button>
-        ))}
-        <span style={{ fontSize: 12, fontWeight: 700, color: harvestCount >= 3 ? color : C.textMuted, alignSelf: "center", marginLeft: 4 }}>{harvestCount >= 3 ? "採取完了!" : harvestCount + "/3"}</span>
       </div>
       <div style={{ background: "#fff", borderRadius: 12, padding: 12, border: "1px solid " + colorBorder }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: color, marginBottom: 8 }}>今日の出現場所</div>
@@ -397,9 +391,10 @@ function DailyGathering() {
   const gameDay = getGameDay();
   const [banchiData, setBanchiData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [subTab, setSubTab] = useState("banchi");
   const [localData, setLocalData] = useState(() => {
-    const saved = loadJSON("hp_gather_v5", { date: "", oakCount: 0, fluoriteCount: 0, items: {} });
-    return saved.date === gameDay ? saved : { date: gameDay, oakCount: 0, fluoriteCount: 0, items: {} };
+    const saved = loadJSON("hp_gather_v5", { date: "", items: {} });
+    return saved.date === gameDay ? saved : { date: gameDay, items: {} };
   });
   useEffect(() => { saveJSON("hp_gather_v5", localData); }, [localData]);
   useEffect(() => {
@@ -408,49 +403,54 @@ function DailyGathering() {
       setLoading(false);
     });
   }, [gameDay]);
-  const setOakCount = (n) => setLocalData(p => ({ ...p, oakCount: p.oakCount === n ? n - 1 : n }));
-  const setFluoriteCount = (n) => setLocalData(p => ({ ...p, fluoriteCount: p.fluoriteCount === n ? n - 1 : n }));
   const toggleItem = (id) => setLocalData(p => ({ ...p, items: { ...p.items, [id]: !p.items[id] } }));
   const otherDone = OTHER_GATHER.filter(g => localData.items[g.id]).length;
   return (
     <Card style={{ padding: 14 }}>
       <SectionTitle emoji="⛏️">デイリー採集トラッカー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>毎朝6:00(JST)自動リセット — 番地情報はみんなで共有</div>
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 20, color: C.textMuted, fontSize: 13 }}>読み込み中...</div>
-      ) : (
-        <>
-          <BanchiCard emoji="🌳" label="ツルツルオーク" color={C.oakGreen} colorSoft={C.oakGreenSoft} colorBorder={C.oakGreenBorder} spots={OAK_SPOTS} todaySpots={banchiData ? banchiData.oak || [] : []} harvestCount={localData.oakCount} onHarvest={setOakCount} />
-          <BanchiCard emoji="💎" label="無垢な蛍石" color={C.gemBlue} colorSoft={C.gemBlueSoft} colorBorder={C.gemBlueBorder} spots={FLUORITE_SPOTS} todaySpots={banchiData ? banchiData.fluorite || [] : []} harvestCount={localData.fluoriteCount} onHarvest={setFluoriteCount} />
-        </>
-      )}
-      <div style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>その他の採集</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}>
-            <div style={{ height: 6, borderRadius: 3, background: otherDone === OTHER_GATHER.length ? C.green : C.accent, width: Math.round((otherDone / OTHER_GATHER.length) * 100) + "%", transition: "width .3s" }} />
-          </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: otherDone === OTHER_GATHER.length ? C.green : C.accent }}>{otherDone}/{OTHER_GATHER.length}</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {OTHER_GATHER.map(g => {
-            const done = localData.items[g.id];
-            return (
-              <div key={g.id} onClick={() => toggleItem(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: done ? C.greenSoft : C.bg, border: "1px solid " + (done ? C.green : C.border), cursor: "pointer" }}>
-                <span style={{ fontSize: 18 }}>{g.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{g.name}</span>
-                    {g.maxDaily > 0 && <Badge color={C.pink} bg={C.pinkSoft}>1日{g.maxDaily}回</Badge>}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{g.spot}</div>
-                </div>
-                <span style={{ fontSize: 15 }}>{done ? "✅" : "⬜"}</span>
-              </div>
-            );
-          })}
-        </div>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>毎朝6:00(JST)自動リセット — 番地情報はみんなで共有</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <IconBtn active={subTab === "banchi"} color={C.oakGreen} onClick={() => setSubTab("banchi")}>🌳💎 番地チェック</IconBtn>
+        <IconBtn active={subTab === "other"} color={C.accent} onClick={() => setSubTab("other")}>⛏️ その他</IconBtn>
       </div>
+      {subTab === "banchi" && (
+        loading ? (
+          <div style={{ textAlign: "center", padding: 20, color: C.textMuted, fontSize: 13 }}>読み込み中...</div>
+        ) : (
+          <>
+            <BanchiCard emoji="🌳" label="ツルツルオーク" color={C.oakGreen} colorSoft={C.oakGreenSoft} colorBorder={C.oakGreenBorder} spots={OAK_SPOTS} todaySpots={banchiData ? banchiData.oak || [] : []} />
+            <BanchiCard emoji="💎" label="無垢な蛍石" color={C.gemBlue} colorSoft={C.gemBlueSoft} colorBorder={C.gemBlueBorder} spots={FLUORITE_SPOTS} todaySpots={banchiData ? banchiData.fluorite || [] : []} />
+          </>
+        )
+      )}
+      {subTab === "other" && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+            <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}>
+              <div style={{ height: 6, borderRadius: 3, background: otherDone === OTHER_GATHER.length ? C.green : C.accent, width: Math.round((otherDone / OTHER_GATHER.length) * 100) + "%", transition: "width .3s" }} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: otherDone === OTHER_GATHER.length ? C.green : C.accent }}>{otherDone}/{OTHER_GATHER.length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {OTHER_GATHER.map(g => {
+              const done = localData.items[g.id];
+              return (
+                <div key={g.id} onClick={() => toggleItem(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: done ? C.greenSoft : C.bg, border: "1px solid " + (done ? C.green : C.border), cursor: "pointer" }}>
+                  <span style={{ fontSize: 18 }}>{g.emoji}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{g.name}</span>
+                      {g.maxDaily > 0 && <Badge color={C.pink} bg={C.pinkSoft}>1日{g.maxDaily}回</Badge>}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{g.spot}</div>
+                  </div>
+                  <span style={{ fontSize: 15 }}>{done ? "✅" : "⬜"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
