@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 const C = {
   bg: "#FFF8F0", card: "#FFFFFF", accent: "#E8A87C", accentSoft: "#FDE8D0",
@@ -30,6 +30,8 @@ const Select = ({ children, ...props }) => (
 // ============ TAB 1: CROP TIMER ============
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用" },
+  
+  { name: "稲", min: 20, lv: "1",},
   { name: "ジャガイモ", min: 15, lv: "1", tip: "トマトと同じ回転率" },
   { name: "小麦", min: 240, lv: "2", tip: "4時間。就寝/外出前に" },
   { name: "レタス", min: 480, lv: "3", tip: "8時間。寝る前に植えて朝収穫" },
@@ -44,25 +46,107 @@ const CROPS = [
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間" },
   { name: "カスタム", min: 0, lv: "-", tip: "" },
-];
+];// --- notification sound helper ---
+function playBeep(times) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < times; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.value = 0.3;
+      osc.start(ctx.currentTime + i * 0.3);
+      osc.stop(ctx.currentTime + i * 0.3 + 0.15);
+    }
+  } catch (e) {}
+}
+
+function sendNotification(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body: body, icon: "🌾" });
+  }
+}
+
 function CropTimer() {
   const [timers, setTimers] = useState([]);
   const [crop, setCrop] = useState(CROPS[0].name);
-  const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
+  const [customH, setCustomH] = useState("");
+  const [customName, setCustomName] = useState("");
   const [, setTick] = useState(0);
-  useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const notifiedRef = React.useRef ? React.useRef({}) : { current: {} };
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      setNotifEnabled(true);
+    }
+  }, []);
+
+  const requestNotif = () => {
+    if ("Notification" in window) {
+      Notification.requestPermission().then(p => {
+        if (p === "granted") setNotifEnabled(true);
+      });
+    }
+  };
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTick(t => t + 1);
+      setTimers(prev => {
+        prev.forEach(t => {
+          const remain = t.harvestAt - Date.now();
+          const key1min = t.id + "_1min";
+          const keyDone = t.id + "_done";
+          if (remain <= 60000 && remain > 0 && !notifiedRef.current[key1min]) {
+            notifiedRef.current[key1min] = true;
+            playBeep(1);
+            sendNotification("あと1分!", t.name + " の収穫まであと1分です");
+          }
+          if (remain <= 0 && !notifiedRef.current[keyDone]) {
+            notifiedRef.current[keyDone] = true;
+            playBeep(2);
+            sendNotification("収穫OK!", t.name + " が収穫できます!");
+          }
+        });
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
     const mins = crop === "カスタム" ? (parseFloat(customH) || 1) * 60 : c.min;
     const name = crop === "カスタム" ? (customName || "カスタム") : crop;
     setTimers(p => [...p, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000, tip: c ? c.tip : "" }]);
   };
-  const fmtRemain = (ms) => { if (ms <= 0) return "収穫OK!"; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return h > 0 ? `${h}h${m}m${s}s` : `${m}m${s}s`; };
+
+  const fmtRemain = (ms) => {
+    if (ms <= 0) return "収穫OK!";
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return h > 0 ? `${h}h${m}m${s}s` : `${m}m${s}s`;
+  };
   const fmtDuration = (min) => min >= 60 ? `${min / 60}時間` : `${min}分`;
+
   return (
     <Card>
       <SectionTitle emoji="🌱">栽培タイマー</SectionTitle>
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠の実際の収穫時間。ブランクから種を購入して育てます</div>
+      {!notifEnabled && (
+        <div style={{ marginBottom: 10 }}>
+          <IconBtn onClick={requestNotif} color={C.accent}>🔔 通知を許可する</IconBtn>
+          <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>バックグラウンドでも通知が届きます</span>
+        </div>
+      )}
+      {notifEnabled && (
+        <div style={{ fontSize: 11, color: C.green, marginBottom: 10 }}>🔔 通知ON — 1分前にピロン、収穫時にピロンピロン</div>
+      )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <Select value={crop} onChange={e => setCrop(e.target.value)} style={{ flex: 1, minWidth: 120 }}>
           {CROPS.map(c => <option key={c.name} value={c.name}>{c.name}{c.min ? ` (${fmtDuration(c.min)})` : ""}{c.lv && c.lv !== "-" ? ` Lv${c.lv}` : ""}</option>)}
@@ -72,13 +156,13 @@ function CropTimer() {
       </div>
       {timers.length === 0 && <p style={{ color: C.textMuted, fontSize: 13, textAlign: "center", margin: "18px 0 4px" }}>まだ作物を植えていません</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {timers.map(t => { const remain = t.harvestAt - Date.now(); const done = remain <= 0; const pct = Math.min(100, Math.max(0, ((Date.now() - t.planted) / (t.harvestAt - t.planted)) * 100)); return (
-          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: done ? C.greenSoft : C.bg, border: `1px solid ${done ? C.green : C.border}` }}>
-            <span style={{ fontSize: 20 }}>{done ? "🌾" : "🌿"}</span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div><div style={{ fontSize: 12, color: done ? C.green : C.textMuted, fontWeight: done ? 700 : 400 }}>{fmtRemain(remain)}</div>
-              {!done && <div style={{ height: 4, borderRadius: 2, background: C.border, marginTop: 4 }}><div style={{ height: 4, borderRadius: 2, background: C.green, width: `${pct}%`, transition: "width 1s linear" }} /></div>}
+        {timers.map(t => { const remain = t.harvestAt - Date.now(); const done = remain <= 0; const warn = remain > 0 && remain <= 60000; const pct = Math.min(100, Math.max(0, ((Date.now() - t.planted) / (t.harvestAt - t.planted)) * 100)); return (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: done ? C.greenSoft : warn ? C.goldSoft : C.bg, border: `1px solid ${done ? C.green : warn ? C.gold : C.border}` }}>
+            <span style={{ fontSize: 20 }}>{done ? "🌾" : warn ? "⏰" : "🌿"}</span>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div><div style={{ fontSize: 12, color: done ? C.green : warn ? C.gold : C.textMuted, fontWeight: done || warn ? 700 : 400 }}>{fmtRemain(remain)}</div>
+              {!done && <div style={{ height: 4, borderRadius: 2, background: C.border, marginTop: 4 }}><div style={{ height: 4, borderRadius: 2, background: done ? C.green : warn ? C.gold : C.green, width: `${pct}%`, transition: "width 1s linear" }} /></div>}
             </div>
-            <button onClick={() => setTimers(p => p.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
+            <button onClick={() => { setTimers(p => p.filter(x => x.id !== t.id)); delete notifiedRef.current[t.id + "_1min"]; delete notifiedRef.current[t.id + "_done"]; }} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
           </div>); })}
       </div>
     </Card>);
@@ -125,20 +209,145 @@ function DailyTasks() {
 
 // ============ TAB 3: RECIPE & PROFIT ============
 const RECIPES = [
-  { name: "田舎サラダ", mats: ["トマト x2"], sell1: 90, src: "初期" },
-  { name: "ミックスジャム", mats: ["果物 x4 (種類混合)"], sell1: 100, src: "初期" },
+  { name: "田舎サラダ", mats: ["野菜 x2"], sell1: 90 },  
+  { name: "ミックスジャム", mats: ["果物 x4 (種類混合)"], sell1: 100 },
+  { name: "トマトソース", mats: ["トマト x4"], sell1: 90 },
   { name: "ブルーベリージャム", mats: ["ブルーベリー x4"], sell1: 120, src: "派生" },
-  { name: "いちごジャム", mats: ["いちご x4"], sell1: 150, src: "派生" },
-  { name: "ブドウジャム", mats: ["ブドウ x4"], sell1: 200, src: "派生" },
-  { name: "フィッシュアンドチップス", mats: ["魚 x2", "小麦粉 x1", "油 x1"], sell1: 180, src: "Lv2" },
-  { name: "ピザ", mats: ["小麦粉 x1", "トマトソース x1", "チーズ x1", "キノコ x1"], sell1: 200, src: "Lv4" },
-  { name: "キノコパイ", mats: ["キノコ x2", "小麦粉 x1", "バター x1"], sell1: 250, src: "サブストーリー" },
-  { name: "トリュフパイ", mats: ["トリュフ x2", "小麦粉 x1", "バター x1"], sell1: 400, src: "派生" },
-  { name: "ロールケーキ", mats: ["小麦粉 x1", "牛乳 x1", "卵 x1", "キャンディ x1"], sell1: 180, src: "ドリス商店" },
-  { name: "キャンプセット", mats: ["肉 x1", "野菜 x1", "パン x1", "飲み物 x1"], sell1: 450, src: "Lv7" },
-  { name: "ロブスターグリル", mats: ["北欧アカザエビ x2", "バター x1", "レモン x1"], sell1: 350, src: "Lv6" },
-  { name: "ブルーロブスターグリル", mats: ["北欧ブルーアカザエビ x2", "バター x1", "レモン x1"], sell1: 500, src: "Lv8派生" },
-];
+  { name: "ラズベリージャム", mats: ["ラズベリー x4"], sell1: 120, src: "派生" },
+  { name: "オレンジジャム", mats: ["オレンジ x4"], sell1: 120, src: "派生" },
+  { name: "いちごジャム", mats: ["いちご x4"], sell1: 120, src: "派生" },
+  { name: "ブドウジャム", mats: ["ブドウ x4"], sell1: 120, src: "派生" },
+  { name: "リンゴジャム", mats: ["リンゴ x4"], sell1: 90 },
+  { name: "パイナップルジャム", mats: ["パイナップル x4"], sell1: 90 }, 
+  { name: "チョコソース", mats: ["カカオ豆 x4"], sell1: 90 }, 
+  { name: "オリジナルロールケーキ", mats: ["卵 x1", "牛乳 x1", "虹のキャンディ x1"], sell1: 250,},
+ 
+  { name: "赤いロールケーキ", mats: ["卵 x1", "牛乳 x1", "赤のキャンディ x2"], sell1: 250,},
+  { name: "オレンジのロールケーキ", mats: ["卵 x1", "牛乳 x1", "オレンジ色のキャンディ x2"], sell1: 250,},
+  { name: "黄色いロールケーキ", mats: ["卵 x1", "牛乳 x1", "黄色のキャンディ x1"], sell1: 250,},
+  { name: "紫のロールケーキ", mats: ["卵 x1", "牛乳 x1", "紫のキャンディ x1"], sell1: 250,},
+  { name: "緑のロールケーキ", mats: ["卵 x1", "牛乳 x1", "緑のキャンディ x1"], sell1: 250,},
+ 
+  { name: "青いロールケーキ", mats: ["卵 x1", "牛乳 x1", "青のキャンディ x1"], sell1: 250,},
+ 
+  
+  { name: "藍色のロールケーキ", mats: ["卵 x1", "牛乳 x1", "ブルーキャンディ x1"], sell1: 250,},
+ 
+
+  { name: "ヒラタケパイ", mats: ["ヒラタケ x2", "小麦 x1", "卵 x1"], sell1: 250,},
+ 
+  { name: "シイタケパイ", mats: ["シイタケ x2", "小麦 x1", "卵 x1"], sell1: 250,},
+  { name: "マッシュルームパイ", mats: [" x2", "小麦 x1", "卵 x1"], sell1: 250,},
+  { name: "ヤマドリタケパイ", mats: ["ヤマドリタケ x2", "小麦 x1", "卵 x1"], sell1: 250,},
+  { name: "トリュフパイ", mats: ["トリュフ x2", "小麦 x1", "卵 x1"], sell1: 250,},
+
+  { name: "焼きキノコ", mats: ["キノコ x5"], sell1: 250,},
+
+  
+  { name: "焼きヒラタケ", mats: ["ヒラタケ x5"], sell1: 250,},
+
+  { name: "焼きシイタケ", mats: ["シイタケ x5"], sell1: 250,},
+
+  
+  { name: "焼きマッシュルーム", mats: ["マッシュルーム x5"], sell1: 250,},
+  
+  { name: "焼きヤマドリダケ", mats: ["ヤマドリダケ x5"], sell1: 250,},
+
+
+ 
+  
+  { name: "カフェラテ", mats: ["コーヒー豆 x2", "牛乳 x2",], sell1: 250,},
+ 
+  
+  
+  { name: "シーフードリゾット", mats: ["海鮮 x1", "小麦 x1", "トマト x1"], sell1: 250,},
+ 
+  
+  
+  { name: "カントリー風煮込み", mats: ["トマト x1", "じゃがいも x1", "レタス x1"], sell1: 250,},
+ 
+  
+  
+  { name: "トリュフのクリームパスタ", mats: ["トリュフ x1", "小麦 x2", "牛乳 x1"], sell1: 250,},
+ 
+  
+  { name: "温泉卵", mats: ["無菌卵 x1", ], sell1: 250,},
+ 
+
+  
+  { name: "シェイク", mats: ["牛乳 x2",  "牛乳 x2"], sell1: 250,},
+ 
+  
+  { name: "抹茶シェイク", mats: ["牛乳 x2",  "抹茶パウダー x2"], sell1: 250,},
+ 
+
+ 
+  { name: "ブルーベリーシェイク", mats: ["牛乳 x2",  "ブルーベリー x2"], sell1: 250,},
+ 
+  { name: "ラズベリーシェイク", mats: ["牛乳 x2",  "ラズベリー x2"], sell1: 250,},
+  
+  
+  { name: "リンゴシェイク", mats: ["牛乳 x2",  "リンゴ x2"], sell1: 250,},
+  
+  { name: "オレンジシェイク", mats: ["牛乳 x2",  "オレンジ x2"], sell1: 250,},
+  
+  { name: "パイナップルシェイク", mats: ["牛乳 x2",  "パイナップル x2"], sell1: 250,},
+  
+  
+  { name: "いちごシェイク", mats: ["牛乳 x2",  "いちご x2"], sell1: 250,},
+  
+  { name: "ブドウシェイク", mats: ["牛乳 x2",  "ブドウ x2"], sell1: 250,},
+  
+  { name: "濃厚ミルクティー", mats: ["紅茶 x2",  "牛乳 x2"], sell1: 250,},
+  
+  { name: "ココアシェイク", mats: ["牛乳 x2",  "カカオ豆 x2"], sell1: 250,},
+  
+  { name: "抹茶ミルクティー", mats: ["茶葉 x2",  "牛乳 x1","抹茶パウダー x1"], sell1: 250,},
+  { name: "ヒナギクハーブティー", mats: ["茶葉 x2",  "白いヒナギク x2"], sell1: 250,},
+  { name: "ローズティー", mats: ["茶葉 x2",  "赤いバラ x1"], sell1: 250,},
+  { name: "アフタヌーンティー", mats: ["チーズケーキ x2",  "香る紅茶 x2"], sell1: 250,},
+  { name: "エビのアボガドカップ詰めレシピ", mats: ["アガサエビ系 x2",  "アボガド x2"], sell1: 250,},
+  { name: "チーズカニ爪フライ", mats: ["タラバガニ系 x2",  "アガサエビ系 x2"], sell1: 250,},
+  { name: "アップルパイ", mats: ["リンゴ x1", "小麦 x1", "卵 x1", "バター x1"], sell1: 200, src: "Lv4" },
+  { name: "キャンドルディナー", mats: ["田園サラダ x1", "スモークサーモンベーグル x1", "シーフードリゾット x1", "ティラミス x1"], sell1: 200, src: "Lv4" },
+  
+  { name: "英国式アフタヌーンティー", mats: ["ティラミス x1", "ジャム材料 x1",], sell1: 200, src: "Lv4" },
+  { name: "ミートバーガー", mats: ["小麦 x1", "レタス x1", "肉 x1", "トマトソース x1"], sell1: 200, src: "Lv4" },
+  { name: "キャンプセット", mats: ["コーヒー素材 x1", "シーフードピザ x1", "アップルパイ x1", "フィッシュアンドチップス x1"], sell1: 200, src: "Lv4" },
+
+  { name: "ティラミス", mats: ["コーヒー豆 x1", "卵 x1", "牛乳 x1", "チーズ x1"], sell1: 200, src: "Lv4" },
+  
+  { name: "豪華海鮮盛り合わせ", mats: ["北欧アカザエビ x2", "魚 x2",], sell1: 200, src: "Lv4" },
+  
+  
+  { name: "コーンポタージュ", mats: ["牛乳 x1", "バター x1", "トウモロコシ x2"], sell1: 200, src: "Lv4" },
+  
+  { name: "ニンジンケーキ", mats: ["卵」 x1", "小麦 x1", "ニンジン x3"], sell1: 200, src: "Lv4" },
+  
+  { name: "ココアミルクティー", mats: ["紅茶 x2", "牛乳 x1", "カカオ豆 x1",], sell1: 200, src: "Lv4" },
+  
+  { name: "ミートソースパスタ", mats: ["肉 x1", "小麦 x1", "トマト x1", "チーズ x1"], sell1: 200, src: "Lv4" },
+  
+  { name: "シーフードピザ", mats: ["チーズ x1", "トマトソース x1", "小麦 x1", "魚 x1"], sell1: 200, src: "Lv4" },
+  
+  { name: "アカザエビの前菜", mats: ["アガサエビ x3", "レタス x1",], sell1: 200, src: "Lv4" },
+  
+  
+  { name: "蒸しタラバガニ", mats: ["タラバガニ x3", "バター x1"], sell1: 200, src: "Lv4" },
+  
+
+  
+  { name: "北欧ブルーアカザエビの前菜", mats: ["北欧ブルーアガサエビ x3", "レタス x1"], sell1: 200, src: "Lv4" },
+  
+  
+  { name: "蒸し黄金タラバガニ", mats: ["黄金タラバガニ x3", "バター x1"], sell1: 200, src: "Lv4" },
+  
+
+
+  { name: "香る紅茶", mats: ["紅茶 x2",  "牛乳 x2"], sell1: 200, src: "Lv4" },
+  
+  { name: "ナス都ひき肉の炒め物", mats: ["ナス x1", "肉 x1", "料理油 x1", "トマトソース x1"], sell1: 200, src: "Lv4" },
+  ];
 function RecipeCalc() {
   const [search, setSearch] = useState(""); const [sort, setSort] = useState("sell1");
   const filtered = useMemo(() => {
@@ -400,12 +609,12 @@ export default function App() {
         {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
       </div>
       <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
-        {activeTab === "crop" && <CropTimer />}
-        {activeTab === "daily" && <DailyTasks />}
-        {activeTab === "recipe" && <RecipeCalc />}
-        {activeTab === "collect" && <CollectionTracker />}
-        {activeTab === "furniture" && <FurnitureCatalog />}
-        {activeTab === "gacha" && <GachaCounter />}
+     <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
+        <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
+        <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
+        <div style={{ display: activeTab === "collect" ? "block" : "none" }}><CollectionTracker /></div>
+        <div style={{ display: activeTab === "furniture" ? "block" : "none" }}><FurnitureCatalog /></div>
+        <div style={{ display: activeTab === "gacha" ? "block" : "none" }}><GachaCounter /></div>
       </div>
       <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール — 攻略Wiki/Note(tam様)等の公開情報を参考</div>
     </div>);
