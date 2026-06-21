@@ -1,21 +1,42 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 
+// ============================================================
+// ★★★ ここにあなたのJSONBin情報を入れてください ★★★
+// ============================================================
+const JSONBIN_BIN_ID = "6a386bcdf5f4af5e291a1ce9";
+const JSONBIN_API_KEY = "$2a$10$q/q7hSIaabH6Hfem.f5iPu.arUr3yBBINi.b8S6TNGHJwFgiGZNOa
+
+";
+// ============================================================
+
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
 const C = {
   bg: "#FFF8F0", card: "#FFFFFF", accent: "#E8A87C", accentSoft: "#FDE8D0",
   green: "#7BC67E", greenSoft: "#E3F5E1", blue: "#7EB8D4", blueSoft: "#DFF0F8",
   purple: "#B59ED8", purpleSoft: "#EDE4F5", pink: "#E89BBF", pinkSoft: "#FCE4EF",
   text: "#4A3728", textMuted: "#9B8B7D", border: "#F0E6DA", danger: "#E87C7C", dangerSoft: "#FCE4E4",
   gold: "#D4A017", goldSoft: "#FFF8E1",
+  oakGreen: "#5A9E3E", oakGreenSoft: "#E8F5E0", oakGreenBorder: "#B5D8A0",
+  gemBlue: "#5B9EC9", gemBlueSoft: "#E0F0FA", gemBlueBorder: "#A8D4F0",
 };
 
 function loadJSON(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; } }
 function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
 
+// 6:00 JST リセット用のゲーム日付を返す
+function getGameDay(now) {
+  const d = now || new Date();
+  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  if (jst.getUTCHours() < 6) jst.setUTCDate(jst.getUTCDate() - 1);
+  return jst.toISOString().slice(0, 10);
+}
+
 const Badge = ({ children, color = C.accent, bg = C.accentSoft }) => (
   <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, borderRadius: 20, padding: "2px 10px", whiteSpace: "nowrap" }}>{children}</span>
 );
-const IconBtn = ({ children, onClick, active, color = C.accent }) => (
-  <button onClick={onClick} style={{ background: active ? color : "transparent", color: active ? "#fff" : color, border: `1.5px solid ${color}`, borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>{children}</button>
+const IconBtn = ({ children, onClick, active, color = C.accent, style: s }) => (
+  <button onClick={onClick} style={{ background: active ? color : "transparent", color: active ? "#fff" : color, border: `1.5px solid ${color}`, borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .15s", ...s }}>{children}</button>
 );
 const Card = ({ children, style }) => (
   <div style={{ background: C.card, borderRadius: 16, padding: 20, boxShadow: "0 2px 12px rgba(74,55,40,.06)", border: `1px solid ${C.border}`, ...style }}>{children}</div>
@@ -45,7 +66,7 @@ function sendNotification(title, body) {
   if ("Notification" in window && Notification.permission === "granted") { try { new Notification(title, { body }); } catch(e) {} }
 }
 
-// ============ TAB 1: CROP TIMER (せらさん修正版) ============
+// ============ TAB 1: CROP TIMER ============
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用" },
   { name: "稲", min: 20, lv: "1", tip: "" },
@@ -162,7 +183,7 @@ function DailyTasks() {
     </Card>);
 }
 
-// ============ TAB 3: RECIPE (せらさん修正版) ============
+// ============ TAB 3: RECIPE ============
 const RECIPES = [
   { name: "田舎サラダ", mats: ["野菜 x2"], sell1: 90 },
   { name: "ミックスジャム", mats: ["果物 x4 (種類混合)"], sell1: 160 },
@@ -320,56 +341,322 @@ function CollectionTracker() {
     </Card>);
 }
 
-// ============ TAB 5: DAILY GATHERING ============
-const GATHER_ITEMS = [
-  { id: "oak", name: "ツルツルオーク", maxDaily: 3, spot: "森林エリア (ウォーキー)", tip: "開拓者Lv6で解放。家具制作に必須", emoji: "🌳" },
-  { id: "fluorite", name: "無垢な蛍石", maxDaily: 3, spot: "温泉山エリア", tip: "温泉山の星霊クエストで解放", emoji: "💎" },
+// ============ TAB 5: DAILY GATHERING (v5 番地チェック対応) ============
+const OAK_SPOTS = [
+  "1番地", "2番地", "3番地", "4番地", "5番地", "6番地",
+  "7番地", "8番地", "9番地", "10番地", "11番地", "12番地",
+  "不思議な松林", "温泉山遺跡",
+];
+const FLUORITE_SPOTS = [
+  "1番地", "2番地", "3番地", "4番地", "5番地", "6番地",
+  "7番地", "8番地", "9番地", "10番地", "11番地", "12番地",
+  "温泉山の湖",
+];
+const OTHER_GATHER = [
   { id: "rarewood", name: "レア木材", maxDaily: 8, spot: "郊外の巨木 (8箇所)", tip: "2時間ごとに再採取可能", emoji: "🪵" },
   { id: "stone", name: "石", maxDaily: 0, spot: "各地の岩", tip: "上限なし。建築素材", emoji: "🪨" },
   { id: "ore", name: "鉱石", maxDaily: 0, spot: "各地の鉱床", tip: "上限なし", emoji: "⛏️" },
   { id: "starmeteor", name: "スターメテオの欠片", maxDaily: 0, spot: "各地", tip: "レア素材", emoji: "⭐" },
   { id: "bamboo", name: "竹", maxDaily: 0, spot: "竹林エリア", tip: "建築素材", emoji: "🎋" },
 ];
+
+// JSONBinからデータ読み込み
+async function fetchBanchiData() {
+  try {
+    const res = await fetch(JSONBIN_URL + "/latest", {
+      headers: { "X-Master-Key": JSONBIN_API_KEY },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.record || null;
+  } catch (e) { return null; }
+}
+
+// JSONBinにデータ書き込み（管理者用）
+async function saveBanchiData(data) {
+  try {
+    const res = await fetch(JSONBIN_URL, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": JSONBIN_API_KEY,
+      },
+      body: JSON.stringify(data),
+    });
+    return res.ok;
+  } catch (e) { return false; }
+}
+
+function BanchiCard({ type, emoji, label, color, colorSoft, colorBorder, spots, todaySpots, harvestCount, onHarvest }) {
+  const hasData = todaySpots && todaySpots.length > 0;
+  return (
+    <div style={{
+      background: colorSoft, borderRadius: 16, padding: 18,
+      border: `2px solid ${colorBorder}`,
+      marginBottom: 12,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 36 }}>{emoji}</span>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, color }}>{label}</div>
+          <div style={{ fontSize: 11, color: C.textMuted }}>1日3回まで採取 / 毎朝6:00リセット</div>
+        </div>
+      </div>
+
+      {/* 採取カウンター */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[1, 2, 3].map(n => (
+          <button key={n} onClick={() => onHarvest(n)} style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: harvestCount >= n ? color : "#fff",
+            color: harvestCount >= n ? "#fff" : color,
+            border: `2px solid ${color}`,
+            fontWeight: 800, fontSize: 15, cursor: "pointer",
+            transition: "all .15s",
+          }}>{n}</button>
+        ))}
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: harvestCount >= 3 ? color : C.textMuted,
+          alignSelf: "center", marginLeft: 4,
+        }}>
+          {harvestCount >= 3 ? "採取完了!" : `${harvestCount}/3`}
+        </span>
+      </div>
+
+      {/* 今日の出現場所 */}
+      <div style={{
+        background: "#fff", borderRadius: 12, padding: 12,
+        border: `1px solid ${colorBorder}`,
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>
+          今日の出現場所
+        </div>
+        {hasData ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {spots.map(spot => {
+              const active = todaySpots.includes(spot);
+              return (
+                <span key={spot} style={{
+                  fontSize: 12, padding: "4px 10px", borderRadius: 8,
+                  fontWeight: active ? 700 : 400,
+                  background: active ? color : "#f5f5f5",
+                  color: active ? "#fff" : "#bbb",
+                  border: `1px solid ${active ? color : "#e0e0e0"}`,
+                }}>{spot}</span>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", padding: "8px 0" }}>
+            まだ更新されていません
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DailyGathering() {
-  const today = new Date().toISOString().slice(0, 10);
-  const [gatherData, setGatherData] = useState(() => {
-    const saved = loadJSON("hp_gather", { date: "", items: {} });
-    return saved.date === today ? saved : { date: today, items: {} };
+  const gameDay = getGameDay();
+  const [banchiData, setBanchiData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [localData, setLocalData] = useState(() => {
+    const saved = loadJSON("hp_gather_v5", { date: "", oakCount: 0, fluoriteCount: 0, items: {} });
+    return saved.date === gameDay ? saved : { date: gameDay, oakCount: 0, fluoriteCount: 0, items: {} };
   });
-  useEffect(() => { saveJSON("hp_gather", gatherData); }, [gatherData]);
-  const toggleItem = (id) => setGatherData(prev => ({ ...prev, items: { ...prev.items, [id]: !prev.items[id] } }));
-  const resetDaily = () => setGatherData({ date: today, items: {} });
-  const doneCount = GATHER_ITEMS.filter(g => gatherData.items[g.id]).length;
+
+  useEffect(() => { saveJSON("hp_gather_v5", localData); }, [localData]);
+
+  // JSONBinから今日の番地データを取得
+  useEffect(() => {
+    fetchBanchiData().then(data => {
+      if (data && data.date === gameDay) {
+        setBanchiData(data);
+      }
+      setLoading(false);
+    });
+  }, [gameDay]);
+
+  const setOakCount = (n) => setLocalData(p => ({ ...p, oakCount: p.oakCount === n ? n - 1 : n }));
+  const setFluoriteCount = (n) => setLocalData(p => ({ ...p, fluoriteCount: p.fluoriteCount === n ? n - 1 : n }));
+  const toggleItem = (id) => setLocalData(p => ({ ...p, items: { ...p.items, [id]: !p.items[id] } }));
+
+  const otherDone = OTHER_GATHER.filter(g => localData.items[g.id]).length;
+
+  return (
+    <Card style={{ padding: 14 }}>
+      <SectionTitle emoji="⛏️">デイリー採集トラッカー</SectionTitle>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
+        毎朝6:00(JST)自動リセット — 番地情報はみんなで共有
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 20, color: C.textMuted, fontSize: 13 }}>読み込み中...</div>
+      ) : (
+        <>
+          {/* ツルツルオーク */}
+          <BanchiCard
+            type="oak" emoji="🌳" label="ツルツルオーク"
+            color={C.oakGreen} colorSoft={C.oakGreenSoft} colorBorder={C.oakGreenBorder}
+            spots={OAK_SPOTS}
+            todaySpots={banchiData?.oak || []}
+            harvestCount={localData.oakCount}
+            onHarvest={setOakCount}
+          />
+
+          {/* 無垢な蛍石 */}
+          <BanchiCard
+            type="fluorite" emoji="💎" label="無垢な蛍石"
+            color={C.gemBlue} colorSoft={C.gemBlueSoft} colorBorder={C.gemBlueBorder}
+            spots={FLUORITE_SPOTS}
+            todaySpots={banchiData?.fluorite || []}
+            harvestCount={localData.fluoriteCount}
+            onHarvest={setFluoriteCount}
+          />
+        </>
+      )}
+
+      {/* その他の採集素材 */}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>その他の採集</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}>
+            <div style={{ height: 6, borderRadius: 3, background: otherDone === OTHER_GATHER.length ? C.green : C.accent, width: `${Math.round((otherDone / OTHER_GATHER.length) * 100)}%`, transition: "width .3s" }} />
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: otherDone === OTHER_GATHER.length ? C.green : C.accent }}>{otherDone}/{OTHER_GATHER.length}</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {OTHER_GATHER.map(g => {
+            const done = localData.items[g.id];
+            return (
+              <div key={g.id} onClick={() => toggleItem(g.id)} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                borderRadius: 10, background: done ? C.greenSoft : C.bg,
+                border: `1px solid ${done ? C.green : C.border}`, cursor: "pointer",
+              }}>
+                <span style={{ fontSize: 18 }}>{g.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{g.name}</span>
+                    {g.maxDaily > 0 && <Badge color={C.pink} bg={C.pinkSoft}>1日{g.maxDaily}回</Badge>}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{g.spot}</div>
+                </div>
+                <span style={{ fontSize: 15 }}>{done ? "✅" : "⬜"}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ============ ADMIN: 番地管理画面 ============
+function AdminPanel() {
+  const gameDay = getGameDay();
+  const [oak, setOak] = useState([]);
+  const [fluorite, setFluorite] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchBanchiData().then(data => {
+      if (data && data.date === gameDay) {
+        setOak(data.oak || []);
+        setFluorite(data.fluorite || []);
+      }
+      setLoaded(true);
+    });
+  }, [gameDay]);
+
+  const toggleSpot = (list, setList, spot) => {
+    setList(prev => prev.includes(spot) ? prev.filter(s => s !== spot) : [...prev, spot]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setMsg("");
+    const ok = await saveBanchiData({ date: gameDay, oak, fluorite });
+    setSaving(false);
+    setMsg(ok ? "保存しました!" : "保存失敗...もう一度試してね");
+  };
+
+  if (!loaded) return <Card><div style={{ textAlign: "center", padding: 20, color: C.textMuted }}>読み込み中...</div></Card>;
+
   return (
     <Card>
-      <SectionTitle emoji="⛏️">デイリー採集トラッカー</SectionTitle>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>日替わりで自動リセット。毎日忘れず採集!</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-        <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border }}>
-          <div style={{ height: 8, borderRadius: 4, background: doneCount === GATHER_ITEMS.length ? C.green : C.accent, width: `${Math.round((doneCount / GATHER_ITEMS.length) * 100)}%`, transition: "width .3s" }} />
+      <SectionTitle emoji="🔧">番地管理（管理者用）</SectionTitle>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>ゲーム日付: {gameDay}（6:00 JSTリセット）</div>
+      <div style={{ fontSize: 11, color: C.accent, marginBottom: 16 }}>今日の出現番地をタップで選んで「保存」してね</div>
+
+      {/* ツルツルオーク */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 24 }}>🌳</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: C.oakGreen }}>ツルツルオーク</span>
+          {oak.length > 0 && <Badge color={C.oakGreen} bg={C.oakGreenSoft}>{oak.length}箇所</Badge>}
         </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: doneCount === GATHER_ITEMS.length ? C.green : C.accent }}>{doneCount}/{GATHER_ITEMS.length}</span>
-        <IconBtn onClick={resetDaily} color={C.danger}>リセット</IconBtn>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {OAK_SPOTS.map(spot => {
+            const active = oak.includes(spot);
+            return (
+              <button key={spot} onClick={() => toggleSpot(oak, setOak, spot)} style={{
+                fontSize: 13, padding: "6px 12px", borderRadius: 8,
+                fontWeight: active ? 700 : 400,
+                background: active ? C.oakGreen : "#fff",
+                color: active ? "#fff" : C.text,
+                border: `1.5px solid ${active ? C.oakGreen : C.border}`,
+                cursor: "pointer", transition: "all .12s",
+              }}>{spot}</button>
+            );
+          })}
+        </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {GATHER_ITEMS.map(g => {
-          const done = gatherData.items[g.id];
-          return (
-            <div key={g.id} onClick={() => toggleItem(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: done ? C.greenSoft : C.bg, border: `1px solid ${done ? C.green : C.border}`, cursor: "pointer" }}>
-              <span style={{ fontSize: 20 }}>{g.emoji}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{g.name}</span>
-                  {g.maxDaily > 0 && <Badge color={C.pink} bg={C.pinkSoft}>1日{g.maxDaily}回</Badge>}
-                </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{g.spot}</div>
-                <div style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}>{g.tip}</div>
-              </div>
-              <span style={{ fontSize: 16 }}>{done ? "✅" : "⬜"}</span>
-            </div>);
-        })}
+
+      {/* 無垢な蛍石 */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 24 }}>💎</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: C.gemBlue }}>無垢な蛍石</span>
+          {fluorite.length > 0 && <Badge color={C.gemBlue} bg={C.gemBlueSoft}>{fluorite.length}箇所</Badge>}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {FLUORITE_SPOTS.map(spot => {
+            const active = fluorite.includes(spot);
+            return (
+              <button key={spot} onClick={() => toggleSpot(fluorite, setFluorite, spot)} style={{
+                fontSize: 13, padding: "6px 12px", borderRadius: 8,
+                fontWeight: active ? 700 : 400,
+                background: active ? C.gemBlue : "#fff",
+                color: active ? "#fff" : C.text,
+                border: `1.5px solid ${active ? C.gemBlue : C.border}`,
+                cursor: "pointer", transition: "all .12s",
+              }}>{spot}</button>
+            );
+          })}
+        </div>
       </div>
-    </Card>);
+
+      {/* 保存ボタン */}
+      <button onClick={handleSave} disabled={saving} style={{
+        width: "100%", padding: "12px 0", borderRadius: 12,
+        background: saving ? C.textMuted : "linear-gradient(135deg, " + C.oakGreen + ", " + C.gemBlue + ")",
+        color: "#fff", fontWeight: 800, fontSize: 15,
+        border: "none", cursor: saving ? "default" : "pointer",
+        transition: "all .15s",
+      }}>
+        {saving ? "保存中..." : "保存する"}
+      </button>
+
+      {msg && (
+        <div style={{
+          marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 600,
+          color: msg.includes("しました") ? C.green : C.danger,
+        }}>{msg}</div>
+      )}
+    </Card>
+  );
 }
 
 // ============ TAB 6: COMPACT OVERLAY ============
@@ -413,32 +700,51 @@ const TABS = [
   { key: "collect", label: "📖 図鑑", color: C.blue },
   { key: "overlay", label: "🎬 配信", color: C.purple },
 ];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("crop");
+  const isAdmin = window.location.search.includes("admin=1");
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
       <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: `1px solid ${C.border}` }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, textAlign: "center" }}>🏡 ハートピア ダッシュボード</h1>
         <p style={{ margin: "4px 0 0", fontSize: 12, color: C.textMuted, textAlign: "center" }}>攻略Wiki準拠 — All-in-One Tool</p>
       </div>
-      <div style={{ display: "flex", overflowX: "auto", gap: 2, padding: "8px 8px 0", background: C.bg, borderBottom: `1px solid ${C.border}`, WebkitOverflowScrolling: "touch" }}>
-        {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
-      </div>
-      <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
-        <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
-        <div style={{ display: activeTab === "gather" ? "block" : "none" }}><DailyGathering /></div>
-        <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
-        <div style={{ display: activeTab === "collect" ? "block" : "none" }}><CollectionTracker /></div>
-        <div style={{ display: activeTab === "overlay" ? "block" : "none" }}>
-          <Card>
-            <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
-            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースにURLを入れると配信画面に重ねて使えます</div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
-            <CompactOverlay />
-          </Card>
+
+      {isAdmin && (
+        <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
+          <AdminPanel />
+          <div style={{ textAlign: "center", marginTop: 12 }}>
+            <IconBtn onClick={() => window.location.search = ""} color={C.textMuted}>通常モードに戻る</IconBtn>
+          </div>
         </div>
-      </div>
-      <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール</div>
-    </div>);
+      )}
+
+      {!isAdmin && (
+        <>
+          <div style={{ display: "flex", overflowX: "auto", gap: 2, padding: "8px 8px 0", background: C.bg, borderBottom: `1px solid ${C.border}`, WebkitOverflowScrolling: "touch" }}>
+            {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? `2.5px solid ${t.color}` : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
+          </div>
+          <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer /></div>
+            <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
+            <div style={{ display: activeTab === "gather" ? "block" : "none" }}><DailyGathering /></div>
+            <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
+            <div style={{ display: activeTab === "collect" ? "block" : "none" }}><CollectionTracker /></div>
+            <div style={{ display: activeTab === "overlay" ? "block" : "none" }}>
+              <Card>
+                <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースにURLを入れると配信画面に重ねて使えます</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
+                <CompactOverlay />
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div style={{ textAlign: "center", padding: "20px 16px", fontSize: 11, color: C.textMuted }}>ハートピアスローライフ 非公式便利ツール v5</div>
+    </div>
+  );
 }
