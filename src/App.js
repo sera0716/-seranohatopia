@@ -555,21 +555,51 @@ const TABS = [
   { key: "overlay", label: "🎬 配信", color: C.purple },
 ];
 
+const ADMIN_PASSWORD = "黄色い謎の子";
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("crop");
-  const isAdmin = window.location.search.includes("admin=1");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showPwDialog, setShowPwDialog] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
+
+  const handlePwSubmit = () => {
+    if (pwInput === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      setShowPwDialog(false);
+      setPwInput("");
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
-      <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: "1px solid " + C.border }}>
+      <div style={{ background: "linear-gradient(135deg, #FDE8D0 0%, #DFF0F8 50%, #EDE4F5 100%)", padding: "20px 16px 14px", borderBottom: "1px solid " + C.border, position: "relative" }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, textAlign: "center" }}>🏡 ハートピア ダッシュボード</h1>
         <p style={{ margin: "4px 0 0", fontSize: 12, color: C.textMuted, textAlign: "center" }}>攻略Wiki準拠 — All-in-One Tool</p>
+        <button onClick={() => { if (isAdmin) { setIsAdmin(false); } else { setShowPwDialog(true); setPwInput(""); setPwError(false); } }} style={{ position: "absolute", right: 12, top: 18, background: isAdmin ? C.accent : "rgba(0,0,0,0.08)", border: "none", borderRadius: 8, padding: "4px 8px", fontSize: 14, cursor: "pointer", color: isAdmin ? "#fff" : C.textMuted }}>🔧</button>
       </div>
+
+      {showPwDialog && !isAdmin && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 24, width: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 12, textAlign: "center" }}>🔧 管理者パスワード</div>
+            <Input placeholder="パスワードを入力" type="password" value={pwInput} onChange={e => { setPwInput(e.target.value); setPwError(false); }} onKeyDown={e => { if (e.key === "Enter") handlePwSubmit(); }} style={{ marginBottom: 8 }} />
+            {pwError && <div style={{ fontSize: 11, color: C.danger, marginBottom: 8, textAlign: "center" }}>パスワードが違います</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <IconBtn onClick={() => setShowPwDialog(false)} color={C.textMuted} style={{ flex: 1 }}>キャンセル</IconBtn>
+              <IconBtn onClick={handlePwSubmit} color={C.oakGreen} style={{ flex: 1 }}>ログイン</IconBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAdmin && (
         <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
           <AdminPanel />
-          <div style={{ textAlign: "center", marginTop: 12 }}>
-            <IconBtn onClick={() => { window.location.search = ""; }} color={C.textMuted}>通常モードに戻る</IconBtn>
-          </div>
         </div>
       )}
       {!isAdmin && (
