@@ -367,7 +367,7 @@ function BanchiCard({ emoji, label, color, colorSoft, colorBorder, spots, todayS
         <span style={{ fontSize: 36 }}>{emoji}</span>
         <div>
           <div style={{ fontWeight: 800, fontSize: 16, color: color }}>{label}</div>
-          <div style={{ fontSize: 11, color: C.textMuted }}>1日3回まで採取 / 毎朝6:00リセット</div>
+          <div style={{ fontSize: 11, color: C.textMuted }}>毎朝6:00リセット</div>
         </div>
       </div>
       <div style={{ background: "#fff", borderRadius: 12, padding: 12, border: "1px solid " + colorBorder }}>
