@@ -103,7 +103,7 @@ const CROPS = [
   { name: "茶葉", min: 720, lv: "11", tip: "12時間", cat: "栽培" },
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間", cat: "栽培" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間", cat: "栽培" },
-  { name: "トリュフ(再出現)", min: 13, lv: "-", tip: "約13分で復活。森の島", cat: "採集" },
+  { name: "トリュフ(再出現)", min: 16, lv: "-", tip: "約16分で復活。森の島", cat: "採集" },
   { name: "巨木レア木材(再出現)", min: 120, lv: "-", tip: "2時間で復活。郊外の巨木", cat: "採集" },
   { name: "カスタム", min: 0, lv: "-", tip: "", cat: "その他" },
 ];
@@ -115,6 +115,7 @@ function CropTimer({ alarmUrl, timers, setTimers }) {
   const notifiedRef = useRef({});
   const alarmRef = useRef(alarmUrl);
   useEffect(() => { alarmRef.current = alarmUrl; }, [alarmUrl]);
+  useEffect(() => { saveJSON("hp_timers", timers); }, [timers]);
   useEffect(() => { if ("Notification" in window && Notification.permission === "granted") setNotifEnabled(true); }, []);
   const requestNotif = () => { if ("Notification" in window) Notification.requestPermission().then(p => { if (p === "granted") setNotifEnabled(true); }); };
   useEffect(() => {
@@ -438,28 +439,76 @@ const DAWAYU_FACES = [
   { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
   { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
 ];
-function CompactOverlay({ timers }) {
+function OverlayBody({ timers, faceFile, imgSize, imgOffset, transparent }) {
   const [, setTick] = useState(0);
-  const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
-  const [imgSize, setImgSize] = useState(() => loadJSON("hp_overlay_size", 260));
-  const [imgOffset, setImgOffset] = useState(() => loadJSON("hp_overlay_offset", -54));
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
-  useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
-  useEffect(() => { saveJSON("hp_overlay_size", imgSize); }, [imgSize]);
-  useEffect(() => { saveJSON("hp_overlay_offset", imgOffset); }, [imgOffset]);
   const gameDay = getGameDay();
   const idx = getTodayCycleIndex(gameDay);
-  const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
   const fmtRemain = (ms) => { if (ms <= 0) return "完了!"; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return h > 0 ? `${h}h${m}m` : `${m}m${s}s`; };
   const sorted = [...(timers || [])].sort((a, b) => a.harvestAt - b.harvestAt);
   return (
+    <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: imgSize * 0.58 }}>
+      <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: imgSize, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
+      <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: imgOffset }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, background: C.oakGreenSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
+              <div style={{ fontSize: 14 }}>🌳</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.oakGreen }}>{spotLabel(OAK_CYCLE[idx], true)}</div>
+            </div>
+            <div style={{ flex: 1, background: C.gemBlueSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
+              <div style={{ fontSize: 14 }}>💎</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.gemBlue }}>{spotLabel(FLU_CYCLE[idx], false)}</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>⏱️ タイマー</div>
+          {sorted.length === 0 ? (
+            <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center", padding: "6px 0" }}>セット中のタイマーなし</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {sorted.map(t => {
+                const remain = t.harvestAt - Date.now();
+                const done = remain <= 0;
+                return (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: done ? C.greenSoft : "#fff", border: `1px solid ${done ? C.green : C.border}` }}>
+                    <span>{done ? "🌾" : "🌿"}</span>
+                    <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+                    <span style={{ fontWeight: 700, color: done ? C.green : C.accent }}>{fmtRemain(remain)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactOverlay({ timers }) {
+  const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
+  const [imgSize, setImgSize] = useState(() => loadJSON("hp_overlay_size", 260));
+  const [imgOffset, setImgOffset] = useState(() => loadJSON("hp_overlay_offset", -54));
+  useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
+  useEffect(() => { saveJSON("hp_overlay_size", imgSize); }, [imgSize]);
+  useEffect(() => { saveJSON("hp_overlay_offset", imgOffset); }, [imgOffset]);
+  const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+  const obsUrl = (typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?obs=1";
+  return (
     <div>
+      <div style={{ background: C.goldSoft, borderRadius: 10, padding: 12, marginBottom: 12, border: "1px solid " + C.gold }}>
+        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>📺 OBSに入れるURL</div>
+        <div style={{ fontSize: 12, color: C.text, background: "#fff", borderRadius: 6, padding: "6px 10px", wordBreak: "break-all", border: "1px solid " + C.border }}>{obsUrl}</div>
+        <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>このURLをOBSの「ブラウザソース」に入れると、イラストとフレームだけが表示されます（メニューやタブは出ません）</div>
+      </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, justifyContent: "center", flexWrap: "wrap" }}>
         {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
       </div>
-      {/* 調整スライダー */}
       <div style={{ background: C.bg, borderRadius: 10, padding: 12, marginBottom: 12, border: "1px solid " + C.border }}>
-        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🎚️ イラスト調整（OBSで微調整用）</div>
+        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🎚️ イラスト調整</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 11, color: C.textMuted, width: 48 }}>サイズ</span>
           <input type="range" min={140} max={400} value={imgSize} onChange={e => setImgSize(Number(e.target.value))} style={{ flex: 1 }} />
@@ -474,52 +523,22 @@ function CompactOverlay({ timers }) {
           <IconBtn onClick={() => { setImgSize(260); setImgOffset(-54); }} color={C.textMuted}>リセット</IconBtn>
         </div>
       </div>
-      {/* オーバーレイ本体 */}
-      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: imgSize * 0.58 }}>
-        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: imgSize, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
-        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: imgOffset }}>
-          {/* 今日の番地 */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <div style={{ flex: 1, background: C.oakGreenSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
-                <div style={{ fontSize: 14 }}>🌳</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.oakGreen }}>{spotLabel(OAK_CYCLE[idx], true)}</div>
-              </div>
-              <div style={{ flex: 1, background: C.gemBlueSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
-                <div style={{ fontSize: 14 }}>💎</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.gemBlue }}>{spotLabel(FLU_CYCLE[idx], false)}</div>
-              </div>
-            </div>
-          </div>
-          {/* タイマー */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>⏱️ タイマー</div>
-            {sorted.length === 0 ? (
-              <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center", padding: "6px 0" }}>セット中のタイマーなし</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {sorted.map(t => {
-                  const remain = t.harvestAt - Date.now();
-                  const done = remain <= 0;
-                  return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: done ? C.greenSoft : "#fff", border: `1px solid ${done ? C.green : C.border}` }}>
-                      <span>{done ? "🌾" : "🌿"}</span>
-                      <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
-                      <span style={{ fontWeight: 700, color: done ? C.green : C.accent }}>{fmtRemain(remain)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
+      <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />
       <div style={{ fontSize: 10, color: C.textMuted, textAlign: "center", marginTop: 10 }}>
         ※イラストが表示されない場合は public フォルダに dawayu1〜3.png を入れてください
       </div>
     </div>
   );
+}
+
+function ObsTimers({ faceFile, imgSize, imgOffset }) {
+  const [timers, setTimersLocal] = useState(() => loadJSON("hp_timers", []));
+  useEffect(() => {
+    const id = setInterval(() => { setTimersLocal(loadJSON("hp_timers", [])); }, 2000);
+    return () => clearInterval(id);
+  }, []);
+  return <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />;
 }
 
 // ============ MAIN APP ============
@@ -540,7 +559,20 @@ export default function App() {
   const [pwError, setPwError] = useState(false);
   const [alarmUrl, setAlarmUrl] = useState(null);
   const [alarmName, setAlarmName] = useState("");
-  const [timers, setTimers] = useState([]);
+  const [timers, setTimers] = useState(() => loadJSON("hp_timers", []));
+
+  const isObs = typeof window !== "undefined" && window.location.search.includes("obs=1");
+  if (isObs) {
+    const face = loadJSON("hp_overlay_face", "dawayu1");
+    const imgSize = loadJSON("hp_overlay_size", 260);
+    const imgOffset = loadJSON("hp_overlay_offset", -54);
+    const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+    return (
+      <div style={{ background: "transparent", padding: 8, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
+        <ObsTimers faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />
+      </div>
+    );
+  }
 
   const handlePwSubmit = () => {
     if (pwInput === ADMIN_PASSWORD) { setIsAdmin(true); setShowPwDialog(false); setPwInput(""); setPwError(false); }
