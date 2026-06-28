@@ -439,6 +439,67 @@ const DAWAYU_FACES = [
   { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
   { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
 ];
+// ============ アスレチックトラッカー ============
+function loadAthletic() { return loadJSON("hp_athletic", { maxCp: 5, players: [] }); }
+function AthleticTracker({ embedded }) {
+  const [data, setData] = useState(() => loadAthletic());
+  const [name, setName] = useState("");
+  const lastWriteRef = useRef(0);
+  useEffect(() => {
+    if (!embedded) return;
+    const id = setInterval(() => { if (Date.now() - lastWriteRef.current < 2500) return; setData(loadAthletic()); }, 2000);
+    return () => clearInterval(id);
+  }, [embedded]);
+  const update = (next) => { lastWriteRef.current = Date.now(); setData(next); saveJSON("hp_athletic", next); };
+  const addPlayer = () => { if (!name.trim()) return; update({ ...data, players: [...data.players, { id: Date.now(), name: name.trim(), cp: 0 }] }); setName(""); };
+  const removePlayer = (id) => update({ ...data, players: data.players.filter(p => p.id !== id) });
+  const setCp = (id, delta) => update({ ...data, players: data.players.map(p => p.id === id ? { ...p, cp: Math.max(0, Math.min(data.maxCp, p.cp + delta)) } : p) });
+  const setMaxCp = (n) => update({ ...data, maxCp: Math.max(1, n) });
+  const resetAll = () => update({ ...data, players: data.players.map(p => ({ ...p, cp: 0 })) });
+  const ranked = [...data.players].sort((a, b) => b.cp - a.cp);
+  const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+  const inner = (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: C.textMuted }}>チェックポイント数:</span>
+        <button onClick={() => setMaxCp(data.maxCp - 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1.5px solid " + C.accent, background: "#fff", color: C.accent, fontWeight: 800, cursor: "pointer" }}>−</button>
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.accent, minWidth: 24, textAlign: "center" }}>{data.maxCp}</span>
+        <button onClick={() => setMaxCp(data.maxCp + 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1.5px solid " + C.accent, background: "#fff", color: C.accent, fontWeight: 800, cursor: "pointer" }}>+</button>
+        <IconBtn onClick={resetAll} color={C.danger} style={{ marginLeft: "auto" }}>全リセット</IconBtn>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <Input placeholder="参加者名を入力..." value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addPlayer(); }} />
+        <IconBtn onClick={addPlayer} color={C.green}>+ 追加</IconBtn>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {ranked.length === 0 && <p style={{ textAlign: "center", color: C.textMuted, fontSize: 13, margin: "10px 0" }}>参加者を追加してください</p>}
+        {ranked.map((p, i) => {
+          const goal = p.cp >= data.maxCp;
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: goal ? C.goldSoft : C.bg, border: "1px solid " + (goal ? C.gold : C.border) }}>
+              <span style={{ fontSize: 16, width: 28, textAlign: "center" }}>{medal(i)}</span>
+              <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{p.name}{goal && " 🏁"}</span>
+              <button onClick={() => setCp(p.id, -1)} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid " + C.textMuted, background: "#fff", color: C.textMuted, fontWeight: 800, cursor: "pointer" }}>−</button>
+              <span style={{ fontSize: 14, fontWeight: 800, color: goal ? C.gold : C.text, minWidth: 42, textAlign: "center" }}>{p.cp}/{data.maxCp}</span>
+              <button onClick={() => setCp(p.id, 1)} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid " + C.green, background: "#fff", color: C.green, fontWeight: 800, cursor: "pointer" }}>+</button>
+              <button onClick={() => removePlayer(p.id)} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 14 }}>✕</button>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+  if (embedded) {
+    return (
+      <div style={{ background: "rgba(255,248,240,0.97)", borderRadius: 16, padding: 14, border: `2px solid ${C.accent}`, maxWidth: 340, margin: "0 auto" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, textAlign: "center" }}>🏁 アスレチック順位</div>
+        {inner}
+      </div>
+    );
+  }
+  return (<Card><SectionTitle emoji="🏁">アスレチックトラッカー</SectionTitle><div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>参加者の到達チェックポイントを記録。進んでる順に自動で並びます。OBSにも表示できます</div>{inner}</Card>);
+}
+
 function OverlayBody({ timers, faceFile, imgSize, imgOffset, onRemove, ctrlButton }) {
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
@@ -499,12 +560,15 @@ function CompactOverlay({ timers }) {
   useEffect(() => { saveJSON("hp_overlay_offset", imgOffset); }, [imgOffset]);
   const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
   const obsUrl = (typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?obs=1";
+  const obsAthleticUrl = (typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?obs=athletic";
   return (
     <div>
       <div style={{ background: C.goldSoft, borderRadius: 10, padding: 12, marginBottom: 12, border: "1px solid " + C.gold }}>
-        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>📺 OBSに入れるURL</div>
+        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>📺 OBSに入れるURL（メインオーバーレイ）</div>
         <div style={{ fontSize: 12, color: C.text, background: "#fff", borderRadius: 6, padding: "6px 10px", wordBreak: "break-all", border: "1px solid " + C.border }}>{obsUrl}</div>
-        <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>このURLをOBSの「ブラウザソース」に入れると、イラストとフレームだけが表示されます（メニューやタブは出ません）</div>
+        <div style={{ fontSize: 12, fontWeight: 700, margin: "10px 0 6px" }}>🏁 アスレチック順位表 用URL</div>
+        <div style={{ fontSize: 12, color: C.text, background: "#fff", borderRadius: 6, padding: "6px 10px", wordBreak: "break-all", border: "1px solid " + C.border }}>{obsAthleticUrl}</div>
+        <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>OBSの「ブラウザソース」に入れて使います。アスレチックは別ソースとして追加できます</div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, justifyContent: "center", flexWrap: "wrap" }}>
         {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
@@ -600,6 +664,7 @@ const TABS = [
   { key: "daily", label: "📋 デイリー", color: C.accent },
   { key: "gather", label: "⛏️ 採集", color: C.gold },
   { key: "recipe", label: "🍳 レシピ", color: C.pink },
+  { key: "athletic", label: "🏁 アスレ", color: C.blue },
   { key: "overlay", label: "🎬 配信", color: C.purple },
 ];
 const ADMIN_PASSWORD = "黄色い謎の子";
@@ -615,6 +680,14 @@ export default function App() {
   const [timers, setTimers] = useState(() => loadJSON("hp_timers", []));
 
   const isObs = typeof window !== "undefined" && window.location.search.includes("obs=1");
+  const isObsAthletic = typeof window !== "undefined" && window.location.search.includes("obs=athletic");
+  if (isObsAthletic) {
+    return (
+      <div style={{ background: "transparent", padding: 8, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
+        <AthleticTracker embedded />
+      </div>
+    );
+  }
   if (isObs) {
     const face = loadJSON("hp_overlay_face", "dawayu1");
     const imgSize = loadJSON("hp_overlay_size", 260);
@@ -671,6 +744,7 @@ export default function App() {
             <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
             <div style={{ display: activeTab === "gather" ? "block" : "none" }}><DailyGathering /></div>
             <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
+            <div style={{ display: activeTab === "athletic" ? "block" : "none" }}><AthleticTracker /></div>
             <div style={{ display: activeTab === "overlay" ? "block" : "none" }}>
               <Card>
                 <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
