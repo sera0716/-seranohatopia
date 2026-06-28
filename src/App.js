@@ -676,9 +676,15 @@ function ObsTimers({ imgSize, imgOffset }) {
   const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
   const [showCtrl, setShowCtrl] = useState(false);
   const [hideImg, setHideImg] = useState(() => loadJSON("hp_overlay_hide", false));
+  const [alarmName, setAlarmName] = useState("");
   const [, setTick] = useState(0);
   const lastWriteRef = useRef(0);
   const notifiedRef = useRef({});
+  const alarmRef = useRef(null);
+  const handleAlarmFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) { alarmRef.current = URL.createObjectURL(f); setAlarmName(f.name); }
+  };
   // 音の判定（毎秒チェック）
   useEffect(() => {
     const id = setInterval(() => {
@@ -688,7 +694,7 @@ function ObsTimers({ imgSize, imgOffset }) {
         const remain = t.harvestAt - Date.now();
         const k1 = t.id + "_1m", kd = t.id + "_done";
         if (remain <= 60000 && remain > 0 && !notifiedRef.current[k1]) { notifiedRef.current[k1] = true; playBeep(1); }
-        if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2); }
+        if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2, alarmRef.current); }
       });
     }, 1000);
     return () => clearInterval(id);
@@ -722,6 +728,12 @@ function ObsTimers({ imgSize, imgOffset }) {
           <div style={{ marginBottom: 10 }}>
             <IconBtn onClick={() => setHideImg(h => !h)} color={hideImg ? C.danger : C.purple} style={{ padding: "4px 10px", fontSize: 12 }}>{hideImg ? "🙈 イラスト非表示中" : "🖼️ イラスト表示中"}</IconBtn>
           </div>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🔔 アラーム音（mp3 / wav）</div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+            <input type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/*" onChange={handleAlarmFile} style={{ fontSize: 11 }} />
+            <IconBtn onClick={() => playBeep(1, alarmRef.current)} color={C.accent} style={{ padding: "4px 10px", fontSize: 12 }}>▶ 試聴</IconBtn>
+          </div>
+          {alarmName && <div style={{ fontSize: 11, color: C.green, marginBottom: 10 }}>設定中: {alarmName}</div>}
           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>タイマー追加</div>
           <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6, marginBottom: 8, WebkitOverflowScrolling: "touch" }}>
             {CROPS.map(c => (
