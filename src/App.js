@@ -90,19 +90,18 @@ function sendNotification(title, body) {
 const CROPS = [
   { name: "トマト", min: 15, lv: "1", tip: "最速レベリング用", cat: "栽培" },
   { name: "稲", min: 20, lv: "1", tip: "", cat: "栽培" },
-  { name: "ジャガイモ", min: 15, lv: "1", tip: "トマトと同じ回転率", cat: "栽培" },
+  { name: "ジャガイモ", min: 60, lv: "1", tip: "1時間", cat: "栽培" },
   { name: "小麦", min: 240, lv: "2", tip: "4時間。就寝/外出前に", cat: "栽培" },
   { name: "レタス", min: 480, lv: "3", tip: "8時間。寝る前に植えて朝収穫", cat: "栽培" },
   { name: "パイナップル", min: 30, lv: "4", tip: "30分", cat: "栽培" },
   { name: "にんじん", min: 120, lv: "5", tip: "2時間", cat: "栽培" },
   { name: "いちご", min: 360, lv: "6", tip: "6時間。ジャム金策に", cat: "栽培" },
-  { name: "ブルーベリー", min: 60, lv: "1", tip: "1時間", cat: "栽培" },
   { name: "とうもろこし", min: 480, lv: "3", tip: "8時間", cat: "栽培" },
-  { name: "ブドウ", min: 720, lv: "7", tip: "12時間。ジャム金策最強", cat: "栽培" },
+  { name: "ブドウ", min: 600, lv: "7", tip: "10時間。ジャム金策最強", cat: "栽培" },
   { name: "ナス", min: 720, lv: "8", tip: "12時間", cat: "栽培" },
-  { name: "茶葉", min: 720, lv: "11", tip: "12時間", cat: "栽培" },
-  { name: "カカオ豆", min: 720, lv: "12", tip: "12時間", cat: "栽培" },
-  { name: "アボカド", min: 720, lv: "13", tip: "12時間", cat: "栽培" },
+  { name: "茶葉", min: 45, lv: "11", tip: "45分", cat: "栽培" },
+  { name: "カカオ豆", min: 300, lv: "12", tip: "5時間", cat: "栽培" },
+  { name: "アボカド", min: 840, lv: "13", tip: "14時間", cat: "栽培" },
   { name: "トリュフ(再出現)", min: 16, lv: "-", tip: "約16分で復活。森の島", cat: "採集" },
   { name: "巨木レア木材(再出現)", min: 120, lv: "-", tip: "2時間で復活。郊外の巨木", cat: "採集" },
   { name: "カスタム", min: 0, lv: "-", tip: "", cat: "その他" },
@@ -676,6 +675,7 @@ function ObsTimers({ imgSize, imgOffset }) {
   const [crop, setCrop] = useState(CROPS[0].name);
   const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
   const [showCtrl, setShowCtrl] = useState(false);
+  const [hideImg, setHideImg] = useState(() => loadJSON("hp_overlay_hide", false));
   const [, setTick] = useState(0);
   const lastWriteRef = useRef(0);
   const notifiedRef = useRef({});
@@ -702,6 +702,7 @@ function ObsTimers({ imgSize, imgOffset }) {
     return () => clearInterval(id);
   }, []);
   useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
+  useEffect(() => { saveJSON("hp_overlay_hide", hideImg); }, [hideImg]);
   const updateTimers = (next) => { lastWriteRef.current = Date.now(); setTimersLocal(next); saveJSON("hp_timers", next); };
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
@@ -715,8 +716,11 @@ function ObsTimers({ imgSize, imgOffset }) {
       {showCtrl && (
         <div style={{ background: "rgba(255,248,240,0.97)", borderRadius: 12, padding: 12, marginBottom: 8, border: "1px solid " + C.purple }}>
           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>表情</div>
-          <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
-            {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)} style={{ padding: "4px 10px", fontSize: 12 }}>{f.label}</IconBtn>)}
+          <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+            {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)} style={{ padding: "4px 10px", fontSize: 12 }}>{f.label}{f.blink ? " ✨" : ""}</IconBtn>)}
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <IconBtn onClick={() => setHideImg(h => !h)} color={hideImg ? C.danger : C.purple} style={{ padding: "4px 10px", fontSize: 12 }}>{hideImg ? "🙈 イラスト非表示中" : "🖼️ イラスト表示中"}</IconBtn>
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>タイマー追加</div>
           <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6, marginBottom: 8, WebkitOverflowScrolling: "touch" }}>
@@ -738,7 +742,7 @@ function ObsTimers({ imgSize, imgOffset }) {
           </div>
         </div>
       )}
-      <OverlayBody timers={timers} faceId={face} imgSize={imgSize} imgOffset={imgOffset} hideImg={loadJSON("hp_overlay_hide", false)} onRemove={showCtrl ? removeTimer : null} ctrlButton={
+      <OverlayBody timers={timers} faceId={face} imgSize={imgSize} imgOffset={imgOffset} hideImg={hideImg} onRemove={showCtrl ? removeTimer : null} ctrlButton={
         <button onClick={() => setShowCtrl(s => !s)} style={{ background: showCtrl ? C.purple : "rgba(181,158,216,0.7)", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showCtrl ? "× 閉じる" : "⚙️ 操作"}</button>
       } />
     </div>
@@ -835,8 +839,8 @@ export default function App() {
                 <SectionTitle emoji="🎬">配信者コンパクトモード</SectionTitle>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>OBSのブラウザソースにURLを入れると配信画面に重ねて使えます</div>
                 <div style={{ marginBottom: 16, padding: 12, background: C.bg, borderRadius: 10, border: "1px solid " + C.border }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>🔔 アラーム音（mp3）</div>
-                  <input type="file" accept="audio/*" onChange={handleAlarmFile} style={{ fontSize: 12 }} />
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>🔔 アラーム音（mp3 / wav）</div>
+                  <input type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/*" onChange={handleAlarmFile} style={{ fontSize: 12 }} />
                   {alarmName && <div style={{ fontSize: 11, color: C.green, marginTop: 4 }}>設定中: {alarmName}</div>}
                   <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>※ページを開き直すと再設定が必要です</div>
                 </div>
