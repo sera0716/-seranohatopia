@@ -430,9 +430,9 @@ function AdminPanel() {
 
 // ============ TAB 5: COMPACT OVERLAY (だわゆイラスト + タイマー) ============
 const DAWAYU_FACES = [
-  { id: "dawayu1", label: "笑顔", file: "/dawayu1.jpg" },
-  { id: "dawayu2", label: "赤目1", file: "/dawayu2.jpg" },
-  { id: "dawayu3", label: "赤目2", file: "/dawayu3.jpg" },
+  { id: "dawayu1", label: "笑顔", file: "/dawayu1.png" },
+  { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
+  { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
 ];
 function CompactOverlay() {
   const [, setTick] = useState(0);
@@ -479,7 +479,7 @@ function CompactOverlay() {
         </div>
       </div>
       <div style={{ fontSize: 10, color: C.textMuted, textAlign: "center", marginTop: 10 }}>
-        ※イラストが表示されない場合は public フォルダに dawayu1〜3.jpg を入れてください
+        ※イラストが表示されない場合は public フォルダに dawayu1〜3.png を入れてください
       </div>
     </div>
   );
