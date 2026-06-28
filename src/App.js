@@ -103,7 +103,7 @@ const CROPS = [
   { name: "茶葉", min: 720, lv: "11", tip: "12時間", cat: "栽培" },
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間", cat: "栽培" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間", cat: "栽培" },
-  { name: "トリュフ(再出現)", min: 13, lv: "-", tip: "約13分で復活。森の島", cat: "採集" },
+  { name: "トリュフ(再出現)", min: 16, lv: "-", tip: "約16分で復活。森の島", cat: "採集" },
   { name: "巨木レア木材(再出現)", min: 120, lv: "-", tip: "2時間で復活。郊外の巨木", cat: "採集" },
   { name: "カスタム", min: 0, lv: "-", tip: "", cat: "その他" },
 ];
@@ -435,10 +435,32 @@ function AdminPanel() {
 
 // ============ TAB 5: COMPACT OVERLAY (だわゆイラスト + タイマー) ============
 const DAWAYU_FACES = [
-  { id: "dawayu1", label: "笑顔", file: "/dawayu1.png" },
-  { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
-  { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
+  { id: "dawayu1", label: "笑顔", file: "/dawayu1.png", blink: null },
+  { id: "dawayu2", label: "赤目1", file: "/dawayu2.png", blink: "/dawayu2_blink.png" },
+  { id: "dawayu3", label: "赤目2", file: "/dawayu3.png", blink: "/dawayu2_blink.png" },
 ];
+// まばたき対応のイラスト表示
+function BlinkImage({ faceId, imgSize, hidden }) {
+  const [closed, setClosed] = useState(false);
+  const faceObj = DAWAYU_FACES.find(f => f.id === faceId) || DAWAYU_FACES[0];
+  useEffect(() => {
+    if (!faceObj.blink) { setClosed(false); return; }
+    let timeout;
+    const loop = () => {
+      const next = 2500 + Math.random() * 3000; // 2.5〜5.5秒ごと
+      timeout = setTimeout(() => {
+        setClosed(true);
+        setTimeout(() => setClosed(false), 140); // 0.14秒だけ閉じる
+        loop();
+      }, next);
+    };
+    loop();
+    return () => clearTimeout(timeout);
+  }, [faceObj.blink, faceId]);
+  if (hidden) return null;
+  const src = (closed && faceObj.blink) ? faceObj.blink : faceObj.file;
+  return <img src={src} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: imgSize, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />;
+}
 // ============ アスレチックトラッカー ============
 function loadAthletic() { return loadJSON("hp_athletic", { maxCp: 5, players: [] }); }
 function fmtSec(ms) {
@@ -546,7 +568,7 @@ function AthleticTracker({ embedded }) {
   return (<Card><SectionTitle emoji="🏁">アスレチックトラッカー</SectionTitle><div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>スタート→CP通過ボタンでタイム記録。到達数→タイム順に自動で並びます。OBSにも表示可</div>{inner}</Card>);
 }
 
-function OverlayBody({ timers, faceFile, imgSize, imgOffset, onRemove, ctrlButton }) {
+function OverlayBody({ timers, faceId, imgSize, imgOffset, onRemove, ctrlButton, hideImg }) {
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
   const gameDay = getGameDay();
@@ -554,10 +576,10 @@ function OverlayBody({ timers, faceFile, imgSize, imgOffset, onRemove, ctrlButto
   const fmtRemain = (ms) => { if (ms <= 0) return "完了!"; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return h > 0 ? `${h}h${m}m` : `${m}m${s}s`; };
   const sorted = [...(timers || [])].sort((a, b) => a.harvestAt - b.harvestAt);
   return (
-    <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: imgSize * 0.58 }}>
-      <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: imgSize, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
-      {ctrlButton && <div style={{ position: "absolute", top: imgSize * 0.36, right: 4, zIndex: 3 }}>{ctrlButton}</div>}
-      <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: imgOffset }}>
+    <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: hideImg ? 8 : imgSize * 0.58 }}>
+      <BlinkImage faceId={faceId} imgSize={imgSize} hidden={hideImg} />
+      {ctrlButton && <div style={{ position: "absolute", top: hideImg ? 0 : imgSize * 0.36, right: 4, zIndex: 3 }}>{ctrlButton}</div>}
+      <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: hideImg ? 0 : imgOffset }}>
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -601,10 +623,11 @@ function CompactOverlay({ timers }) {
   const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
   const [imgSize, setImgSize] = useState(() => loadJSON("hp_overlay_size", 260));
   const [imgOffset, setImgOffset] = useState(() => loadJSON("hp_overlay_offset", -54));
+  const [hideImg, setHideImg] = useState(() => loadJSON("hp_overlay_hide", false));
   useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
   useEffect(() => { saveJSON("hp_overlay_size", imgSize); }, [imgSize]);
   useEffect(() => { saveJSON("hp_overlay_offset", imgOffset); }, [imgOffset]);
-  const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+  useEffect(() => { saveJSON("hp_overlay_hide", hideImg); }, [hideImg]);
   const obsUrl = (typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?obs=1";
   const obsAthleticUrl = (typeof window !== "undefined" ? window.location.origin + window.location.pathname : "") + "?obs=athletic";
   return (
@@ -617,10 +640,13 @@ function CompactOverlay({ timers }) {
         <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>OBSの「ブラウザソース」に入れて使います。アスレチックは別ソースとして追加できます</div>
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
+        {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}{f.blink ? " ✨" : ""}</IconBtn>)}
       </div>
       <div style={{ background: C.bg, borderRadius: 10, padding: 12, marginBottom: 12, border: "1px solid " + C.border }}>
-        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🎚️ イラスト調整</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700 }}>🎚️ イラスト調整</span>
+          <IconBtn onClick={() => setHideImg(h => !h)} color={hideImg ? C.danger : C.purple} style={{ padding: "4px 10px", fontSize: 12 }}>{hideImg ? "イラスト非表示中" : "イラスト表示中"}</IconBtn>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 11, color: C.textMuted, width: 48 }}>サイズ</span>
           <input type="range" min={140} max={400} value={imgSize} onChange={e => setImgSize(Number(e.target.value))} style={{ flex: 1 }} />
@@ -636,21 +662,37 @@ function CompactOverlay({ timers }) {
         </div>
       </div>
       <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8 }}>プレビュー:</div>
-      <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />
+      <OverlayBody timers={timers} faceId={face} imgSize={imgSize} imgOffset={imgOffset} hideImg={hideImg} />
       <div style={{ fontSize: 10, color: C.textMuted, textAlign: "center", marginTop: 10 }}>
-        ※イラストが表示されない場合は public フォルダに dawayu1〜3.png を入れてください
+        ※イラストが表示されない場合は public フォルダに dawayu1〜3.png（まばたき用は dawayu2_blink.png）を入れてください
       </div>
     </div>
   );
 }
 
-function ObsTimers({ faceFile: initFaceFile, imgSize, imgOffset }) {
+function ObsTimers({ imgSize, imgOffset }) {
   const [timers, setTimersLocal] = useState(() => loadJSON("hp_timers", []));
   const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
   const [crop, setCrop] = useState(CROPS[0].name);
   const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
   const [showCtrl, setShowCtrl] = useState(false);
+  const [, setTick] = useState(0);
   const lastWriteRef = useRef(0);
+  const notifiedRef = useRef({});
+  // 音の判定（毎秒チェック）
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTick(t => t + 1);
+      const list = loadJSON("hp_timers", []);
+      list.forEach(t => {
+        const remain = t.harvestAt - Date.now();
+        const k1 = t.id + "_1m", kd = t.id + "_done";
+        if (remain <= 60000 && remain > 0 && !notifiedRef.current[k1]) { notifiedRef.current[k1] = true; playBeep(1); }
+        if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2); }
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
   useEffect(() => {
     const id = setInterval(() => {
       // 直近2.5秒以内に自分で書き込んだ場合は再読込しない（上書き防止）
@@ -667,8 +709,7 @@ function ObsTimers({ faceFile: initFaceFile, imgSize, imgOffset }) {
     const name = crop === "カスタム" ? (customName || "カスタム") : crop;
     updateTimers([...timers, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000 }]);
   };
-  const removeTimer = (id) => updateTimers(timers.filter(t => t.id !== id));
-  const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+  const removeTimer = (id) => { delete notifiedRef.current[id + "_1m"]; delete notifiedRef.current[id + "_done"]; updateTimers(timers.filter(t => t.id !== id)); };
   return (
     <div>
       {showCtrl && (
@@ -697,7 +738,7 @@ function ObsTimers({ faceFile: initFaceFile, imgSize, imgOffset }) {
           </div>
         </div>
       )}
-      <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} onRemove={showCtrl ? removeTimer : null} ctrlButton={
+      <OverlayBody timers={timers} faceId={face} imgSize={imgSize} imgOffset={imgOffset} hideImg={loadJSON("hp_overlay_hide", false)} onRemove={showCtrl ? removeTimer : null} ctrlButton={
         <button onClick={() => setShowCtrl(s => !s)} style={{ background: showCtrl ? C.purple : "rgba(181,158,216,0.7)", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showCtrl ? "× 閉じる" : "⚙️ 操作"}</button>
       } />
     </div>
@@ -735,13 +776,11 @@ export default function App() {
     );
   }
   if (isObs) {
-    const face = loadJSON("hp_overlay_face", "dawayu1");
     const imgSize = loadJSON("hp_overlay_size", 260);
     const imgOffset = loadJSON("hp_overlay_offset", -54);
-    const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
     return (
       <div style={{ background: "transparent", padding: 8, fontFamily: "'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif", color: C.text }}>
-        <ObsTimers faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />
+        <ObsTimers imgSize={imgSize} imgOffset={imgOffset} />
       </div>
     );
   }
