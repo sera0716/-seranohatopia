@@ -103,7 +103,7 @@ const CROPS = [
   { name: "茶葉", min: 720, lv: "11", tip: "12時間", cat: "栽培" },
   { name: "カカオ豆", min: 720, lv: "12", tip: "12時間", cat: "栽培" },
   { name: "アボカド", min: 720, lv: "13", tip: "12時間", cat: "栽培" },
-  { name: "トリュフ(再出現)", min: 16, lv: "-", tip: "約16分で復活。森の島", cat: "採集" },
+  { name: "トリュフ(再出現)", min: 13, lv: "-", tip: "約13分で復活。森の島", cat: "採集" },
   { name: "巨木レア木材(再出現)", min: 120, lv: "-", tip: "2時間で復活。郊外の巨木", cat: "採集" },
   { name: "カスタム", min: 0, lv: "-", tip: "", cat: "その他" },
 ];
@@ -439,7 +439,7 @@ const DAWAYU_FACES = [
   { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
   { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
 ];
-function OverlayBody({ timers, faceFile, imgSize, imgOffset, transparent }) {
+function OverlayBody({ timers, faceFile, imgSize, imgOffset, onRemove }) {
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
   const gameDay = getGameDay();
@@ -477,6 +477,7 @@ function OverlayBody({ timers, faceFile, imgSize, imgOffset, transparent }) {
                     <span>{done ? "🌾" : "🌿"}</span>
                     <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
                     <span style={{ fontWeight: 700, color: done ? C.green : C.accent }}>{fmtRemain(remain)}</span>
+                    {onRemove && <button onClick={() => onRemove(t.id)} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 14, padding: 0 }}>✕</button>}
                   </div>
                 );
               })}
@@ -532,13 +533,50 @@ function CompactOverlay({ timers }) {
   );
 }
 
-function ObsTimers({ faceFile, imgSize, imgOffset }) {
+function ObsTimers({ faceFile: initFaceFile, imgSize, imgOffset }) {
   const [timers, setTimersLocal] = useState(() => loadJSON("hp_timers", []));
+  const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
+  const [crop, setCrop] = useState(CROPS[0].name);
+  const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
+  const [showCtrl, setShowCtrl] = useState(false);
   useEffect(() => {
     const id = setInterval(() => { setTimersLocal(loadJSON("hp_timers", [])); }, 2000);
     return () => clearInterval(id);
   }, []);
-  return <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} />;
+  useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
+  const updateTimers = (next) => { setTimersLocal(next); saveJSON("hp_timers", next); };
+  const addTimer = () => {
+    const c = CROPS.find(x => x.name === crop);
+    const mins = crop === "カスタム" ? (parseFloat(customH) || 1) : c.min;
+    const name = crop === "カスタム" ? (customName || "カスタム") : crop;
+    updateTimers([...timers, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000 }]);
+  };
+  const removeTimer = (id) => updateTimers(timers.filter(t => t.id !== id));
+  const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+  return (
+    <div>
+      <div style={{ textAlign: "right", marginBottom: 4 }}>
+        <button onClick={() => setShowCtrl(s => !s)} style={{ background: showCtrl ? C.purple : "rgba(181,158,216,0.5)", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showCtrl ? "× 操作を閉じる" : "⚙️ 操作"}</button>
+      </div>
+      {showCtrl && (
+        <div style={{ background: "rgba(255,248,240,0.97)", borderRadius: 12, padding: 12, marginBottom: 8, border: "1px solid " + C.purple }}>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>表情</div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+            {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)} style={{ padding: "4px 10px", fontSize: 12 }}>{f.label}</IconBtn>)}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>タイマー追加</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <Select value={crop} onChange={e => setCrop(e.target.value)} style={{ flex: 1, minWidth: 110, fontSize: 12 }}>
+              {CROPS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            </Select>
+            {crop === "カスタム" && (<><Input placeholder="名前" value={customName} onChange={e => setCustomName(e.target.value)} style={{ flex: 1, minWidth: 60, fontSize: 12 }} /><Input placeholder="分" type="number" value={customH} onChange={e => setCustomH(e.target.value)} style={{ width: 56, flex: "none", fontSize: 12 }} /></>)}
+            <IconBtn onClick={addTimer} color={C.green} style={{ padding: "4px 10px", fontSize: 12 }}>+ 追加</IconBtn>
+          </div>
+        </div>
+      )}
+      <OverlayBody timers={timers} faceFile={faceFile} imgSize={imgSize} imgOffset={imgOffset} onRemove={showCtrl ? removeTimer : null} />
+    </div>
+  );
 }
 
 // ============ MAIN APP ============
