@@ -64,9 +64,13 @@ const Select = ({ children, ...props }) => (
   <select {...props} style={{ border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "7px 12px", fontSize: 13, color: C.text, outline: "none", background: C.bg, cursor: "pointer", ...props.style }}>{children}</select>
 );
 
+let currentAlarmAudio = null;
+function stopAlarm() {
+  if (currentAlarmAudio) { try { currentAlarmAudio.pause(); currentAlarmAudio.currentTime = 0; } catch(e) {} currentAlarmAudio = null; }
+}
 function playBeep(times, customUrl) {
   if (customUrl) {
-    try { const a = new Audio(customUrl); a.play(); return; } catch(e) {}
+    try { stopAlarm(); const a = new Audio(customUrl); currentAlarmAudio = a; a.play(); return; } catch(e) {}
   }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -125,7 +129,7 @@ function CropTimer({ alarmUrl, timers, setTimers }) {
   }, [setTimers]);
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
-    const mins = crop === "カスタム" ? (parseFloat(customH) || 1) * 60 : c.min;
+    const mins = crop === "カスタム" ? (parseFloat(customH) || 1) : c.min;
     const name = crop === "カスタム" ? (customName || "カスタム") : crop;
     setTimers(p => [...p, { id: Date.now(), name, planted: Date.now(), harvestAt: Date.now() + mins * 60000 }]);
   };
@@ -138,11 +142,12 @@ function CropTimer({ alarmUrl, timers, setTimers }) {
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>攻略Wiki準拠。トリュフ(13分)・巨木(2時間)の再出現も</div>
       {!notifEnabled && <div style={{ marginBottom: 10 }}><IconBtn onClick={requestNotif} color={C.accent}>🔔 通知を許可する</IconBtn><span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>1分前と収穫時に通知</span></div>}
       {notifEnabled && <div style={{ fontSize: 11, color: C.green, marginBottom: 10 }}>🔔 通知ON{alarmUrl ? "（カスタム音）" : ""}</div>}
+      <div style={{ marginBottom: 12 }}><IconBtn onClick={stopAlarm} color={C.danger}>🔇 アラームを止める</IconBtn></div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <Select value={crop} onChange={e => setCrop(e.target.value)} style={{ flex: 1, minWidth: 120 }}>
           {CROPS.map(c => <option key={c.name} value={c.name}>{c.name}{c.min ? ` (${fmtDuration(c.min)})` : ""}{c.lv && c.lv !== "-" ? ` Lv${c.lv}` : ""}</option>)}
         </Select>
-        {crop === "カスタム" && (<><Input placeholder="名前" value={customName} onChange={e => setCustomName(e.target.value)} style={{ flex: 1, minWidth: 80 }} /><Input placeholder="時間(h)" type="number" value={customH} onChange={e => setCustomH(e.target.value)} style={{ width: 70, flex: "none" }} /></>)}
+        {crop === "カスタム" && (<><Input placeholder="名前" value={customName} onChange={e => setCustomName(e.target.value)} style={{ flex: 1, minWidth: 80 }} /><Input placeholder="分" type="number" value={customH} onChange={e => setCustomH(e.target.value)} style={{ width: 70, flex: "none" }} /></>)}
         <IconBtn onClick={addTimer} color={C.green}>+ セット</IconBtn>
       </div>
       {timers.length === 0 && <p style={{ color: C.textMuted, fontSize: 13, textAlign: "center", margin: "18px 0 4px" }}>まだタイマーがありません</p>}
@@ -436,8 +441,12 @@ const DAWAYU_FACES = [
 function CompactOverlay({ timers }) {
   const [, setTick] = useState(0);
   const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
+  const [imgSize, setImgSize] = useState(() => loadJSON("hp_overlay_size", 260));
+  const [imgOffset, setImgOffset] = useState(() => loadJSON("hp_overlay_offset", -54));
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
   useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
+  useEffect(() => { saveJSON("hp_overlay_size", imgSize); }, [imgSize]);
+  useEffect(() => { saveJSON("hp_overlay_offset", imgOffset); }, [imgOffset]);
   const gameDay = getGameDay();
   const idx = getTodayCycleIndex(gameDay);
   const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
@@ -445,15 +454,30 @@ function CompactOverlay({ timers }) {
   const sorted = [...(timers || [])].sort((a, b) => a.harvestAt - b.harvestAt);
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, justifyContent: "center", flexWrap: "wrap" }}>
         {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
       </div>
+      {/* 調整スライダー */}
+      <div style={{ background: C.bg, borderRadius: 10, padding: 12, marginBottom: 12, border: "1px solid " + C.border }}>
+        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🎚️ イラスト調整（OBSで微調整用）</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: C.textMuted, width: 48 }}>サイズ</span>
+          <input type="range" min={140} max={400} value={imgSize} onChange={e => setImgSize(Number(e.target.value))} style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: C.textMuted, width: 40, textAlign: "right" }}>{imgSize}px</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: C.textMuted, width: 48 }}>縦位置</span>
+          <input type="range" min={-120} max={20} value={imgOffset} onChange={e => setImgOffset(Number(e.target.value))} style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: C.textMuted, width: 40, textAlign: "right" }}>{imgOffset}px</span>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 8 }}>
+          <IconBtn onClick={() => { setImgSize(260); setImgOffset(-54); }} color={C.textMuted}>リセット</IconBtn>
+        </div>
+      </div>
       {/* オーバーレイ本体 */}
-      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: 150 }}>
-        {/* だわゆイラスト（手がフレーム上端を掴む） */}
-        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 260, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
-        {/* 情報フレーム */}
-        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: -54 }}>
+      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: imgSize * 0.58 }}>
+        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: imgSize, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
+        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: imgOffset }}>
           {/* 今日の番地 */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
