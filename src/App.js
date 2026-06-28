@@ -441,27 +441,47 @@ const DAWAYU_FACES = [
 ];
 // ============ アスレチックトラッカー ============
 function loadAthletic() { return loadJSON("hp_athletic", { maxCp: 5, players: [] }); }
+function fmtSec(ms) {
+  if (ms == null) return "-";
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60), s = total % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}秒`;
+}
 function AthleticTracker({ embedded }) {
   const [data, setData] = useState(() => loadAthletic());
   const [name, setName] = useState("");
+  const [, setTick] = useState(0);
   const lastWriteRef = useRef(0);
   useEffect(() => {
-    if (!embedded) return;
-    const id = setInterval(() => { if (Date.now() - lastWriteRef.current < 2500) return; setData(loadAthletic()); }, 2000);
+    const id = setInterval(() => {
+      setTick(t => t + 1); // 計測中の表示更新
+      if (embedded && Date.now() - lastWriteRef.current >= 2500) setData(loadAthletic());
+    }, 1000);
     return () => clearInterval(id);
   }, [embedded]);
   const update = (next) => { lastWriteRef.current = Date.now(); setData(next); saveJSON("hp_athletic", next); };
-  const addPlayer = () => { if (!name.trim()) return; update({ ...data, players: [...data.players, { id: Date.now(), name: name.trim(), cp: 0 }] }); setName(""); };
+  const addPlayer = () => { if (!name.trim()) return; update({ ...data, players: [...data.players, { id: Date.now(), name: name.trim(), cp: 0, startAt: null, splits: [] }] }); setName(""); };
   const removePlayer = (id) => update({ ...data, players: data.players.filter(p => p.id !== id) });
-  const setCp = (id, delta) => update({ ...data, players: data.players.map(p => p.id === id ? { ...p, cp: Math.max(0, Math.min(data.maxCp, p.cp + delta)) } : p) });
+  const startPlayer = (id) => update({ ...data, players: data.players.map(p => p.id === id ? { ...p, startAt: Date.now(), cp: 0, splits: [] } : p) });
+  const passCp = (id) => update({ ...data, players: data.players.map(p => {
+    if (p.id !== id || !p.startAt || p.cp >= data.maxCp) return p;
+    return { ...p, cp: p.cp + 1, splits: [...p.splits, Date.now() - p.startAt] };
+  }) });
+  const undoCp = (id) => update({ ...data, players: data.players.map(p => p.id === id && p.cp > 0 ? { ...p, cp: p.cp - 1, splits: p.splits.slice(0, -1) } : p) });
   const setMaxCp = (n) => update({ ...data, maxCp: Math.max(1, n) });
-  const resetAll = () => update({ ...data, players: data.players.map(p => ({ ...p, cp: 0 })) });
-  const ranked = [...data.players].sort((a, b) => b.cp - a.cp);
+  const resetAll = () => update({ ...data, players: data.players.map(p => ({ ...p, cp: 0, startAt: null, splits: [] })) });
+  // 順位: 到達CP数 多い順 → 同数なら最新スプリットが速い順
+  const ranked = [...data.players].sort((a, b) => {
+    if (b.cp !== a.cp) return b.cp - a.cp;
+    const at = a.splits.length ? a.splits[a.splits.length - 1] : Infinity;
+    const bt = b.splits.length ? b.splits[b.splits.length - 1] : Infinity;
+    return at - bt;
+  });
   const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
   const inner = (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: C.textMuted }}>チェックポイント数:</span>
+        <span style={{ fontSize: 12, color: C.textMuted }}>CP数:</span>
         <button onClick={() => setMaxCp(data.maxCp - 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1.5px solid " + C.accent, background: "#fff", color: C.accent, fontWeight: 800, cursor: "pointer" }}>−</button>
         <span style={{ fontSize: 16, fontWeight: 800, color: C.accent, minWidth: 24, textAlign: "center" }}>{data.maxCp}</span>
         <button onClick={() => setMaxCp(data.maxCp + 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1.5px solid " + C.accent, background: "#fff", color: C.accent, fontWeight: 800, cursor: "pointer" }}>+</button>
@@ -471,18 +491,44 @@ function AthleticTracker({ embedded }) {
         <Input placeholder="参加者名を入力..." value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addPlayer(); }} />
         <IconBtn onClick={addPlayer} color={C.green}>+ 追加</IconBtn>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {ranked.length === 0 && <p style={{ textAlign: "center", color: C.textMuted, fontSize: 13, margin: "10px 0" }}>参加者を追加してください</p>}
         {ranked.map((p, i) => {
           const goal = p.cp >= data.maxCp;
+          const running = p.startAt && !goal;
+          const elapsed = p.startAt ? (goal && p.splits.length ? p.splits[p.splits.length - 1] : Date.now() - p.startAt) : null;
           return (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: goal ? C.goldSoft : C.bg, border: "1px solid " + (goal ? C.gold : C.border) }}>
-              <span style={{ fontSize: 16, width: 28, textAlign: "center" }}>{medal(i)}</span>
-              <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{p.name}{goal && " 🏁"}</span>
-              <button onClick={() => setCp(p.id, -1)} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid " + C.textMuted, background: "#fff", color: C.textMuted, fontWeight: 800, cursor: "pointer" }}>−</button>
-              <span style={{ fontSize: 14, fontWeight: 800, color: goal ? C.gold : C.text, minWidth: 42, textAlign: "center" }}>{p.cp}/{data.maxCp}</span>
-              <button onClick={() => setCp(p.id, 1)} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid " + C.green, background: "#fff", color: C.green, fontWeight: 800, cursor: "pointer" }}>+</button>
-              <button onClick={() => removePlayer(p.id)} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 14 }}>✕</button>
+            <div key={p.id} style={{ padding: "10px 12px", borderRadius: 12, background: goal ? C.goldSoft : C.bg, border: "1px solid " + (goal ? C.gold : C.border) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16, width: 28, textAlign: "center" }}>{medal(i)}</span>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{p.name}{goal && " 🏁"}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: goal ? C.gold : C.text }}>{p.cp}/{data.maxCp}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 48, textAlign: "right" }}>{p.startAt ? fmtSec(elapsed) : "未開始"}</span>
+              </div>
+              <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+                {!p.startAt ? (
+                  <IconBtn onClick={() => startPlayer(p.id)} color={C.green} style={{ padding: "4px 12px", fontSize: 12 }}>▶ スタート</IconBtn>
+                ) : (
+                  <>
+                    <IconBtn onClick={() => passCp(p.id)} color={C.blue} style={{ padding: "4px 12px", fontSize: 12 }} >CP通過</IconBtn>
+                    <IconBtn onClick={() => undoCp(p.id)} color={C.textMuted} style={{ padding: "4px 10px", fontSize: 12 }}>↩ 取消</IconBtn>
+                    <IconBtn onClick={() => startPlayer(p.id)} color={C.danger} style={{ padding: "4px 10px", fontSize: 12 }}>やり直し</IconBtn>
+                  </>
+                )}
+                <button onClick={() => removePlayer(p.id)} style={{ marginLeft: "auto", background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 14 }}>✕</button>
+              </div>
+              {p.splits.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                  {p.splits.map((sp, si) => {
+                    const lap = si === 0 ? sp : sp - p.splits[si - 1];
+                    return (
+                      <span key={si} style={{ fontSize: 11, background: "#fff", borderRadius: 6, padding: "3px 8px", border: "1px solid " + C.border }}>
+                        CP{si + 1}: <b>{fmtSec(sp)}</b> <span style={{ color: C.textMuted }}>(+{fmtSec(lap)})</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -491,13 +537,13 @@ function AthleticTracker({ embedded }) {
   );
   if (embedded) {
     return (
-      <div style={{ background: "rgba(255,248,240,0.97)", borderRadius: 16, padding: 14, border: `2px solid ${C.accent}`, maxWidth: 340, margin: "0 auto" }}>
+      <div style={{ background: "rgba(255,248,240,0.97)", borderRadius: 16, padding: 14, border: `2px solid ${C.accent}`, maxWidth: 360, margin: "0 auto" }}>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, textAlign: "center" }}>🏁 アスレチック順位</div>
         {inner}
       </div>
     );
   }
-  return (<Card><SectionTitle emoji="🏁">アスレチックトラッカー</SectionTitle><div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>参加者の到達チェックポイントを記録。進んでる順に自動で並びます。OBSにも表示できます</div>{inner}</Card>);
+  return (<Card><SectionTitle emoji="🏁">アスレチックトラッカー</SectionTitle><div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>スタート→CP通過ボタンでタイム記録。到達数→タイム順に自動で並びます。OBSにも表示可</div>{inner}</Card>);
 }
 
 function OverlayBody({ timers, faceFile, imgSize, imgOffset, onRemove, ctrlButton }) {
