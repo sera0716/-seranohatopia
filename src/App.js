@@ -103,8 +103,7 @@ const CROPS = [
   { name: "巨木レア木材(再出現)", min: 120, lv: "-", tip: "2時間で復活。郊外の巨木", cat: "採集" },
   { name: "カスタム", min: 0, lv: "-", tip: "", cat: "その他" },
 ];
-function CropTimer({ alarmUrl }) {
-  const [timers, setTimers] = useState([]);
+function CropTimer({ alarmUrl, timers, setTimers }) {
   const [crop, setCrop] = useState(CROPS[0].name);
   const [customH, setCustomH] = useState(""); const [customName, setCustomName] = useState("");
   const [, setTick] = useState(0);
@@ -123,7 +122,7 @@ function CropTimer({ alarmUrl }) {
         if (remain <= 0 && !notifiedRef.current[kd]) { notifiedRef.current[kd] = true; playBeep(2, alarmRef.current); sendNotification("収穫OK!", t.name + " が収穫できます!"); }
       }); return prev; });
     }, 1000); return () => clearInterval(id);
-  }, []);
+  }, [setTimers]);
   const addTimer = () => {
     const c = CROPS.find(x => x.name === crop);
     const mins = crop === "カスタム" ? (parseFloat(customH) || 1) * 60 : c.min;
@@ -434,47 +433,61 @@ const DAWAYU_FACES = [
   { id: "dawayu2", label: "赤目1", file: "/dawayu2.png" },
   { id: "dawayu3", label: "赤目2", file: "/dawayu3.png" },
 ];
-function CompactOverlay() {
+function CompactOverlay({ timers }) {
   const [, setTick] = useState(0);
   const [face, setFace] = useState(() => loadJSON("hp_overlay_face", "dawayu1"));
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
   useEffect(() => { saveJSON("hp_overlay_face", face); }, [face]);
-  const tasks = loadJSON("hp_tasks", DEFAULT_TASKS.map(t => ({...t, done: false})));
-  const doneCount = tasks.filter(t => t.done).length;
-  const taskPct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
   const gameDay = getGameDay();
   const idx = getTodayCycleIndex(gameDay);
   const faceFile = (DAWAYU_FACES.find(f => f.id === face) || DAWAYU_FACES[0]).file;
+  const fmtRemain = (ms) => { if (ms <= 0) return "完了!"; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return h > 0 ? `${h}h${m}m` : `${m}m${s}s`; };
+  const sorted = [...(timers || [])].sort((a, b) => a.harvestAt - b.harvestAt);
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, justifyContent: "center" }}>
         {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
       </div>
       {/* オーバーレイ本体 */}
-      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: 90 }}>
-        {/* だわゆイラスト（手で掲げる構図） */}
-        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 200, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
-        {/* 情報フレーム（手の間に表示されるイメージ） */}
-        <div style={{ background: "rgba(255,248,240,0.95)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1 }}>
+      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: 130 }}>
+        {/* だわゆイラスト（手がフレーム上端に乗る） */}
+        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 240, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
+        {/* 情報フレーム */}
+        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: -18 }}>
+          {/* 今日の番地 */}
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📋 今日の進捗</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border }}><div style={{ height: 6, borderRadius: 3, background: taskPct === 100 ? C.green : C.accent, width: `${taskPct}%` }} /></div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: taskPct === 100 ? C.green : C.accent }}>{doneCount}/{tasks.length}</span>
-            </div>
-          </div>
-          <div>
             <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
             <div style={{ display: "flex", gap: 8 }}>
               <div style={{ flex: 1, background: C.oakGreenSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
                 <div style={{ fontSize: 14 }}>🌳</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.oakGreen }}>{spotLabel(OAK_CYCLE[idx], true)}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.oakGreen }}>{spotLabel(OAK_CYCLE[idx], true)}</div>
               </div>
               <div style={{ flex: 1, background: C.gemBlueSoft, borderRadius: 8, padding: "6px 4px", textAlign: "center" }}>
                 <div style={{ fontSize: 14 }}>💎</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.gemBlue }}>{spotLabel(FLU_CYCLE[idx], false)}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.gemBlue }}>{spotLabel(FLU_CYCLE[idx], false)}</div>
               </div>
             </div>
+          </div>
+          {/* タイマー */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>⏱️ タイマー</div>
+            {sorted.length === 0 ? (
+              <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center", padding: "6px 0" }}>セット中のタイマーなし</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {sorted.map(t => {
+                  const remain = t.harvestAt - Date.now();
+                  const done = remain <= 0;
+                  return (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: done ? C.greenSoft : "#fff", border: `1px solid ${done ? C.green : C.border}` }}>
+                      <span>{done ? "🌾" : "🌿"}</span>
+                      <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+                      <span style={{ fontWeight: 700, color: done ? C.green : C.accent }}>{fmtRemain(remain)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -503,6 +516,7 @@ export default function App() {
   const [pwError, setPwError] = useState(false);
   const [alarmUrl, setAlarmUrl] = useState(null);
   const [alarmName, setAlarmName] = useState("");
+  const [timers, setTimers] = useState([]);
 
   const handlePwSubmit = () => {
     if (pwInput === ADMIN_PASSWORD) { setIsAdmin(true); setShowPwDialog(false); setPwInput(""); setPwError(false); }
@@ -544,7 +558,7 @@ export default function App() {
             {TABS.map(t => (<button key={t.key} onClick={() => setActiveTab(t.key)} style={{ flex: "none", padding: "8px 12px", fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500, color: activeTab === t.key ? t.color : C.textMuted, background: activeTab === t.key ? C.card : "transparent", border: "none", borderBottom: activeTab === t.key ? "2.5px solid " + t.color : "2.5px solid transparent", cursor: "pointer", whiteSpace: "nowrap", borderRadius: "8px 8px 0 0" }}>{t.label}</button>))}
           </div>
           <div style={{ padding: 12, maxWidth: 640, margin: "0 auto" }}>
-            <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer alarmUrl={alarmUrl} /></div>
+            <div style={{ display: activeTab === "crop" ? "block" : "none" }}><CropTimer alarmUrl={alarmUrl} timers={timers} setTimers={setTimers} /></div>
             <div style={{ display: activeTab === "daily" ? "block" : "none" }}><DailyTasks /></div>
             <div style={{ display: activeTab === "gather" ? "block" : "none" }}><DailyGathering /></div>
             <div style={{ display: activeTab === "recipe" ? "block" : "none" }}><RecipeCalc /></div>
@@ -558,7 +572,7 @@ export default function App() {
                   {alarmName && <div style={{ fontSize: 11, color: C.green, marginTop: 4 }}>設定中: {alarmName}</div>}
                   <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>※ページを開き直すと再設定が必要です</div>
                 </div>
-                <CompactOverlay />
+                <CompactOverlay timers={timers} />
               </Card>
             </div>
           </div>
