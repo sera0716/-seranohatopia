@@ -568,12 +568,22 @@ function ObsTimers({ faceFile: initFaceFile, imgSize, imgOffset }) {
             {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)} style={{ padding: "4px 10px", fontSize: 12 }}>{f.label}</IconBtn>)}
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>タイマー追加</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            <Select value={crop} onChange={e => setCrop(e.target.value)} style={{ flex: 1, minWidth: 110, fontSize: 12 }}>
-              {CROPS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </Select>
+          <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6, marginBottom: 8, WebkitOverflowScrolling: "touch" }}>
+            {CROPS.map(c => (
+              <button key={c.name} onClick={() => setCrop(c.name)} style={{
+                flex: "none", padding: "5px 10px", borderRadius: 8, fontSize: 12,
+                fontWeight: crop === c.name ? 700 : 500,
+                background: crop === c.name ? C.green : "#fff",
+                color: crop === c.name ? "#fff" : C.text,
+                border: "1.5px solid " + (crop === c.name ? C.green : C.border),
+                cursor: "pointer", whiteSpace: "nowrap",
+              }}>{c.name}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
             {crop === "カスタム" && (<><Input placeholder="名前" value={customName} onChange={e => setCustomName(e.target.value)} style={{ flex: 1, minWidth: 60, fontSize: 12 }} /><Input placeholder="分" type="number" value={customH} onChange={e => setCustomH(e.target.value)} style={{ width: 56, flex: "none", fontSize: 12 }} /></>)}
-            <IconBtn onClick={addTimer} color={C.green} style={{ padding: "4px 10px", fontSize: 12 }}>+ 追加</IconBtn>
+            <span style={{ fontSize: 12, color: C.textMuted, flex: 1 }}>選択中: <b style={{ color: C.green }}>{crop}</b></span>
+            <IconBtn onClick={addTimer} color={C.green} style={{ padding: "5px 12px", fontSize: 12 }}>+ 追加</IconBtn>
           </div>
         </div>
       )}
