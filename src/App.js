@@ -449,11 +449,11 @@ function CompactOverlay({ timers }) {
         {DAWAYU_FACES.map(f => <IconBtn key={f.id} active={face === f.id} color={C.purple} onClick={() => setFace(f.id)}>{f.label}</IconBtn>)}
       </div>
       {/* オーバーレイ本体 */}
-      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: 130 }}>
-        {/* だわゆイラスト（手がフレーム上端に乗る） */}
-        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 240, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
+      <div style={{ position: "relative", maxWidth: 340, margin: "0 auto", paddingTop: 150 }}>
+        {/* だわゆイラスト（手がフレーム上端を掴む） */}
+        <img src={faceFile} alt="だわゆ" style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 260, zIndex: 2, pointerEvents: "none" }} onError={(e) => { e.target.style.display = "none"; }} />
         {/* 情報フレーム */}
-        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: -18 }}>
+        <div style={{ background: "rgba(255,248,240,0.96)", borderRadius: 16, padding: 16, border: `2px solid ${C.purple}`, boxShadow: "0 4px 16px rgba(74,55,40,.12)", position: "relative", zIndex: 1, marginTop: -42 }}>
           {/* 今日の番地 */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>🌳💎 今日の番地</div>
